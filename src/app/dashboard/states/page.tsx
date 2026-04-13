@@ -189,24 +189,35 @@ export default function StatesPage() {
         }
     };
 
-    const handleExport = () => {
-        const rows = selectedStates.length > 0 ? states.filter(s => selectedStates.includes(s.id)) : states;
-        if (rows.length === 0) return;
-        const headers = ['State Name','Code','Secretary','Districts','Clubs','Skaters','Registration Date','Created At'];
-        const csvRows = [headers.join(',')];
-        for (const s of rows) {
-            csvRows.push([
-                s.state_name, s.code, s.secretaryName || '', String(s.districtsCount),
-                String(s.clubsCount), String(s.skatersCount),
-                s.registrationDate ? new Date(s.registrationDate).toLocaleDateString() : '',
-                s.created_at
-            ].map(v => `"${v}"`).join(','));
-        }
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `states_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click(); URL.revokeObjectURL(url);
+    const handleExport = async () => {
+        try {
+            let rows;
+            if (selectedStates.length > 0) {
+                rows = states.filter(s => selectedStates.includes(s.id));
+            } else {
+                // Fetch ALL states (not just current page)
+                const params: any = { page: 1, limit: 10000, sortField, sortOrder, registeredOnly };
+                if (searchQuery) params.search = searchQuery;
+                const res = await api.get('/states', { params });
+                rows = res.data?.data?.states || states;
+            }
+            if (rows.length === 0) return;
+            const headers = ['State Name','Code','Secretary','Districts','Clubs','Skaters','Registration Date','Created At'];
+            const csvRows = [headers.join(',')];
+            for (const s of rows) {
+                csvRows.push([
+                    s.state_name, s.code, s.secretaryName || '', String(s.districtsCount),
+                    String(s.clubsCount), String(s.skatersCount),
+                    s.registrationDate ? new Date(s.registrationDate).toLocaleDateString() : '',
+                    s.created_at
+                ].map(v => `"${v}"`).join(','));
+            }
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `states_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(url);
+        } catch { /* silently fail */ }
     };
 
     return (

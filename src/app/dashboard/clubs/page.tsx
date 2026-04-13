@@ -154,23 +154,37 @@ export default function ClubsPage() {
         }
     };
 
-    const handleExport = () => {
-        const rows = selectedIds.length > 0 ? clubs.filter(c => selectedIds.includes(c.id)) : clubs;
-        if (rows.length === 0) return;
-        const headers = ['Membership ID','Club Name','Contact Person','Mobile','Email','District','State','Established Year','Skaters','Status','Created At'];
-        const csvRows = [headers.join(',')];
-        for (const c of rows) {
-            csvRows.push([
-                c.membership_id, c.club_name, c.contact_person, c.mobile_number, c.email_address,
-                c.district_name, c.state_name, c.established_year, String(c.skatersCount),
-                c.verified === 1 ? 'Verified' : 'Pending', c.created_at
-            ].map(v => `"${v}"`).join(','));
-        }
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `clubs_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click(); URL.revokeObjectURL(url);
+    const handleExport = async () => {
+        try {
+            let rows;
+            if (selectedIds.length > 0) {
+                rows = clubs.filter(c => selectedIds.includes(c.id));
+            } else {
+                // Fetch ALL clubs (not just current page)
+                const params: any = { page: 1, limit: 10000, sortField, sortOrder };
+                if (searchQuery) params.search = searchQuery;
+                if (stateFilter !== 'all') params.stateId = stateFilter;
+                if (verificationFilter === 'verified') params.status = 'APPROVED';
+                if (verificationFilter === 'pending') params.status = 'PENDING';
+                const res = await api.get('/clubs', { params });
+                rows = res.data?.data?.clubs || clubs;
+            }
+            if (rows.length === 0) return;
+            const headers = ['Membership ID','Club Name','Contact Person','Mobile','Email','District','State','Established Year','Skaters','Status','Created At'];
+            const csvRows = [headers.join(',')];
+            for (const c of rows) {
+                csvRows.push([
+                    c.membership_id, c.club_name, c.contact_person, c.mobile_number, c.email_address,
+                    c.district_name, c.state_name, c.established_year, String(c.skatersCount),
+                    c.verified === 1 ? 'Verified' : 'Pending', c.created_at
+                ].map(v => `"${v}"`).join(','));
+            }
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `clubs_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(url);
+        } catch { /* silently fail */ }
     };
 
     const getVerificationBadge = (verified: number) =>

@@ -215,23 +215,35 @@ export default function DistrictsPage() {
         }
     };
 
-    const handleExport = () => {
-        const rows = selectedDistricts.length > 0 ? districts.filter(d => selectedDistricts.includes(d.id)) : districts;
-        if (rows.length === 0) return;
-        const headers = ['District Name','Code','State','State Code','Secretary','Secretary Phone','Registered On','Clubs','Skaters','Created At'];
-        const csvRows = [headers.join(',')];
-        for (const d of rows) {
-            csvRows.push([
-                d.district_name, d.code, d.state_name, d.state_code, d.secretaryName,
-                d.secretaryPhone, d.secretaryRegisteredAt ? new Date(d.secretaryRegisteredAt).toLocaleDateString() : '',
-                String(d.clubsCount), String(d.skatersCount), d.created_at
-            ].map(v => `"${v}"`).join(','));
-        }
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `districts_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click(); URL.revokeObjectURL(url);
+    const handleExport = async () => {
+        try {
+            let rows;
+            if (selectedDistricts.length > 0) {
+                rows = districts.filter(d => selectedDistricts.includes(d.id));
+            } else {
+                // Fetch ALL districts (not just current page)
+                const params: any = { page: 1, limit: 10000, sortField, sortOrder };
+                if (searchQuery) params.search = searchQuery;
+                if (stateFilter !== 'all') params.stateId = stateFilter;
+                const res = await api.get('/districts', { params });
+                rows = res.data?.data?.districts || districts;
+            }
+            if (rows.length === 0) return;
+            const headers = ['District Name','Code','State','State Code','Secretary','Secretary Phone','Registered On','Clubs','Skaters','Created At'];
+            const csvRows = [headers.join(',')];
+            for (const d of rows) {
+                csvRows.push([
+                    d.district_name, d.code, d.state_name, d.state_code, d.secretaryName,
+                    d.secretaryPhone, d.secretaryRegisteredAt ? new Date(d.secretaryRegisteredAt).toLocaleDateString() : '',
+                    String(d.clubsCount), String(d.skatersCount), d.created_at
+                ].map(v => `"${v}"`).join(','));
+            }
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `districts_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click(); URL.revokeObjectURL(url);
+        } catch { /* silently fail */ }
     };
 
     // Re-calculate local totals for display if needed, but we used api stats
