@@ -133,6 +133,7 @@ export default function SettingsPage() {
                 // Populate editable form fields from profile
                 const p = userData.profile || {};
                 const fields: Record<string, any> = {
+                    email: userData.email || '',
                     name: p.name || '',
                     gender: p.gender || 'MALE',
                     addressLine1: p.addressLine1 || '',
@@ -439,12 +440,12 @@ export default function SettingsPage() {
                                     <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
                                         <Shield className="w-5 h-5 text-emerald-500" /> Account Information
                                     </h2>
-                                    <p className="text-gray-500 text-sm mb-4">These fields cannot be changed.</p>
+                                    <p className="text-gray-500 text-sm mb-4">Phone number and User ID cannot be changed.</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <ReadOnlyField label="User ID" value={fullUser?.uid} icon={User} />
                                         <ReadOnlyField label="Role" value={role?.replace(/_/g, ' ')} icon={Shield} />
                                         <ReadOnlyField label="Phone Number" value={fullUser?.phone} icon={Phone} />
-                                        <ReadOnlyField label="Email Address" value={fullUser?.email} icon={Mail} />
+                                        <InputField label="Email Address" value={formData.email || ''} onChange={(e: any) => setField('email', e.target.value)} type="email" icon={Mail} />
                                         <ReadOnlyField label="Aadhaar Number" value={profile?.aadhaarNumber ? `XXXX-XXXX-${profile.aadhaarNumber.slice(-4)}` : '—'} icon={Shield} />
                                         {role === 'STATE_SECRETARY' && (profile as any)?.state && (
                                             <ReadOnlyField label="State" value={(profile as any).state?.name} icon={MapPin} />

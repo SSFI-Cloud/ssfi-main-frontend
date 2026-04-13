@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
     ArrowLeft, Save, Loader2, AlertCircle, CheckCircle,
-    Shield, MapPin, Phone, Mail, User, Calendar, Hash, Globe, FileText
+    Shield, MapPin, Phone, Mail, User, Calendar, Hash, Globe, FileText, Upload, X
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -39,6 +39,7 @@ export default function EditClubPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
     useEffect(() => {
         if (!token || !id) return;
@@ -63,6 +64,10 @@ export default function EditClubPage() {
                     website: club.website || '',
                     logo: club.logo || '',
                 });
+                if (club.logo) {
+                    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
+                    setLogoPreview(club.logo.startsWith('http') ? club.logo : `${baseUrl}/${club.logo}`);
+                }
             } catch {
                 setError('Failed to load club details.');
             } finally {
@@ -74,6 +79,27 @@ export default function EditClubPage() {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            setError('Logo must be under 5MB');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result as string;
+            setLogoPreview(result);
+            setForm(prev => ({ ...prev, logo: result }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeLogo = () => {
+        setLogoPreview(null);
+        setForm(prev => ({ ...prev, logo: '' }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -158,7 +184,33 @@ export default function EditClubPage() {
                         {field('Pincode', 'pincode', <Hash className="w-4 h-4" />)}
                         {field('Established Year', 'establishedYear', <Calendar className="w-4 h-4" />, 'number')}
                         {field('Website', 'website', <Globe className="w-4 h-4" />, 'url')}
-                        {field('Logo URL', 'logo', <Globe className="w-4 h-4" />, 'url')}
+                    </div>
+
+                    {/* Club Logo Upload */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Club Logo</label>
+                        <div className="flex items-start gap-4">
+                            {logoPreview ? (
+                                <div className="relative">
+                                    <img src={logoPreview} alt="Club Logo" className="w-24 h-24 object-contain rounded-lg border border-gray-200 bg-gray-50" />
+                                    <button type="button" onClick={removeLogo} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                                    <Upload className="w-6 h-6 text-gray-400" />
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-2">
+                                <label className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg cursor-pointer hover:bg-emerald-100 transition-colors text-sm font-medium inline-flex items-center gap-2 w-fit">
+                                    <Upload className="w-4 h-4" />
+                                    {logoPreview ? 'Change Logo' : 'Upload Logo'}
+                                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} className="hidden" />
+                                </label>
+                                <p className="text-xs text-gray-500">PNG, JPG or WebP. Max 5MB.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
