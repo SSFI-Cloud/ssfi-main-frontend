@@ -341,27 +341,30 @@ export default function ClubsPage() {
                                     </td>
                                     <td className="px-4 py-3 text-center">{getVerificationBadge(club.verified)}</td>
                                     <td className="px-4 py-3">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex items-center justify-end gap-1">
                                             <button onClick={() => handleViewClub(club.id)}
-                                                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors" title="View Details">
+                                                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors group relative">
                                                 <Eye className="w-4 h-4" />
+                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">View Details</span>
                                             </button>
                                             <Link href={`/dashboard/clubs/${club.id}/edit`}
-                                                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-emerald-600 transition-colors" title="Edit">
+                                                className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-emerald-600 transition-colors group relative">
                                                 <Edit2 className="w-4 h-4" />
+                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit</span>
                                             </Link>
                                             {user?.role === 'GLOBAL_ADMIN' && (
                                             <>
                                             <button
                                                 onClick={() => handleResendCredentials(club)}
                                                 disabled={resendLoading === club.id}
-                                                className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50"
-                                                title="Resend Credentials"
+                                                className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
                                             >
                                                 {resendLoading === club.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
                                             </button>
-                                            <button onClick={() => handleDelete(club.id)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors" title="Delete">
+                                            <button onClick={() => handleDelete(club.id)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative">
                                                 <Trash2 className="w-4 h-4" />
+                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
                                             </button>
                                             </>
                                             )}

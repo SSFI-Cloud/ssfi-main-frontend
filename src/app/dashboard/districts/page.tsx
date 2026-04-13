@@ -21,9 +21,11 @@ import {
     Shield,
     AlertCircle,
     X,
+    Send,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { toast } from 'react-hot-toast';
 import DistrictViewModal from '@/components/dashboard/DistrictViewModal';
 
 // Types
@@ -35,6 +37,7 @@ interface District {
     state_name: string;
     state_code: string;
     secretaryName: string;
+    secretaryEmail: string | null;
     secretaryPhone: string;
     secretaryRegisteredAt: string | null;
     clubsCount: number;
@@ -114,6 +117,27 @@ export default function DistrictsPage() {
     const handleCloseViewModal = () => {
         setShowViewModal(false);
         setViewingDistrict(null);
+    };
+
+    // Resend credentials
+    const [resendLoading, setResendLoading] = useState<number | null>(null);
+    const handleResendCredentials = async (district: District) => {
+        if (!district.secretaryEmail && !district.secretaryPhone) {
+            toast.error('No secretary email or phone on file for this district');
+            return;
+        }
+        setResendLoading(district.id);
+        try {
+            await api.post('/admin/resend-credentials', {
+                email: district.secretaryEmail || undefined,
+                phone: district.secretaryPhone !== 'N/A' ? district.secretaryPhone : undefined,
+            });
+            toast.success(`Credentials sent to ${district.secretaryEmail || district.secretaryPhone}`);
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+        } finally {
+            setResendLoading(null);
+        }
     };
 
     // Fetch states for filter dropdown
@@ -478,29 +502,39 @@ export default function DistrictsPage() {
                                             <span className="text-gray-700">{district.skatersCount}</span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-1">
                                                 <button
                                                     onClick={() => handleViewDistrict(district.id)}
-                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors"
-                                                    title="View Details"
+                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors group relative"
                                                 >
                                                     <Eye className="w-4 h-4" />
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">View Details</span>
                                                 </button>
                                                 <button
                                                     onClick={() => setEditingDistrict(district)}
-                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-emerald-600 transition-colors"
-                                                    title="Edit"
+                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-emerald-600 transition-colors group relative"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit</span>
                                                 </button>
                                                 {user?.role === 'GLOBAL_ADMIN' && (
+                                                <>
+                                                <button
+                                                    onClick={() => handleResendCredentials(district)}
+                                                    disabled={resendLoading === district.id}
+                                                    className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
+                                                >
+                                                    {resendLoading === district.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
+                                                </button>
                                                 <button
                                                     onClick={() => handleDelete(district.id)}
-                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors"
-                                                    title="Delete"
+                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
                                                 </button>
+                                                </>
                                                 )}
                                             </div>
                                         </td>

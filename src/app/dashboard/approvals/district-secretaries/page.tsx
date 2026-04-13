@@ -269,18 +269,6 @@ export default function DistrictSecretariesApprovalPage() {
                                 </div>
                             )}
 
-                            {sec.status === 'APPROVED' && (
-                                <div className="flex items-center gap-3 shrink-0">
-                                    <button
-                                        onClick={() => handleResendCredentials(sec)}
-                                        disabled={resendLoading === sec.id}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg border border-blue-500/30 transition-colors disabled:opacity-50 text-sm"
-                                    >
-                                        {resendLoading === sec.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                        Resend Credentials
-                                    </button>
-                                </div>
-                            )}
                         </motion.div>
                     ))}
                 </div>
