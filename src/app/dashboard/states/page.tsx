@@ -124,11 +124,11 @@ export default function StatesPage() {
             const response = await api.get<ApiResponse>('/states', { params });
 
             if (response.data && response.data.data) {
-                const { states: data, meta } = response.data.data;
+                const { states: data, meta, stats: backendStats } = response.data.data;
                 setStates(data);
                 setTotalPages(meta.totalPages);
 
-                const currentStats = {
+                const currentStats = backendStats || {
                     totalStates: meta.total,
                     totalDistricts: data.reduce((acc: number, d: any) => acc + d.districtsCount, 0),
                     totalClubs: data.reduce((acc: number, d: any) => acc + d.clubsCount, 0),
