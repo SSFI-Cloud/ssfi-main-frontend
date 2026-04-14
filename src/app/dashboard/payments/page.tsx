@@ -377,7 +377,6 @@ export default function PaymentsPage() {
                                                 View
                                             </button>
                                             {user?.role === 'GLOBAL_ADMIN' && payment.status === 'PENDING' && (
-                                            <>
                                                 <button
                                                     onClick={() => handleVerifyWithRazorpay(payment.id)}
                                                     disabled={verifyLoading === payment.id}
@@ -386,14 +385,6 @@ export default function PaymentsPage() {
                                                     {verifyLoading === payment.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Verify with Razorpay</span>
                                                 </button>
-                                                <button
-                                                    onClick={() => openConfirmModal(payment)}
-                                                    className="p-1.5 hover:bg-green-50 rounded-lg text-gray-400 hover:text-green-600 transition-colors group relative"
-                                                >
-                                                    <ShieldCheck className="w-4 h-4" />
-                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Confirm Payment</span>
-                                                </button>
-                                            </>
                                             )}
                                         </div>
                                     </td>
