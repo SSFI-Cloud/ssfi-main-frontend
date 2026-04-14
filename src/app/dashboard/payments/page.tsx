@@ -6,9 +6,11 @@ import {
     IndianRupee, Search, ArrowUpRight, ArrowDownRight, Download,
     CheckCircle, XCircle, Clock, CreditCard, Calendar,
     ChevronLeft, ChevronRight, Loader2, Wallet, TrendingUp, X, User, FileText,
+    ShieldCheck, RefreshCw,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +55,7 @@ interface PaymentStats {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
+    const { user } = useAuth();
     const [payments, setPayments] = useState<Payment[]>([]);
     const [meta, setMeta]         = useState({ total: 0, page: 1, limit: 10, totalPages: 1 });
     const [stats, setStats]       = useState<PaymentStats | null>(null);
@@ -68,6 +71,13 @@ export default function PaymentsPage() {
     const [receipt, setReceipt]           = useState<PaymentReceipt | null>(null);
     const [receiptLoading, setReceiptLoading] = useState(false);
     const [showReceipt, setShowReceipt]   = useState(false);
+
+    // Confirm payment modal state
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmPayment, setConfirmPayment]     = useState<Payment | null>(null);
+    const [confirmRzpId, setConfirmRzpId]         = useState('');
+    const [confirmLoading, setConfirmLoading]     = useState(false);
+    const [verifyLoading, setVerifyLoading]       = useState<number | null>(null);
 
     // Debounce search
     useEffect(() => {
@@ -145,6 +155,53 @@ export default function PaymentsPage() {
             toast.error('Failed to export payments');
         } finally {
             setExporting(false);
+        }
+    };
+
+    // Open confirm modal for a PENDING payment
+    const openConfirmModal = (payment: Payment) => {
+        setConfirmPayment(payment);
+        setConfirmRzpId('');
+        setShowConfirmModal(true);
+    };
+
+    // Manual confirm with Razorpay Payment ID
+    const handleManualConfirm = async () => {
+        if (!confirmPayment) return;
+        setConfirmLoading(true);
+        try {
+            const res = await api.post('/payments/admin/confirm', {
+                paymentId: confirmPayment.id,
+                razorpayPaymentId: confirmRzpId,
+            });
+            toast.success((res.data as any)?.message || 'Payment confirmed');
+            setShowConfirmModal(false);
+            fetchPayments();
+            fetchStats();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? 'Failed to confirm payment');
+        } finally {
+            setConfirmLoading(false);
+        }
+    };
+
+    // Auto-verify with Razorpay API
+    const handleVerifyWithRazorpay = async (paymentId: number) => {
+        setVerifyLoading(paymentId);
+        try {
+            const res = await api.post('/payments/admin/verify-razorpay', { paymentId });
+            const data = (res.data as any);
+            if (data?.data?.action === 'confirmed') {
+                toast.success('Payment verified as paid in Razorpay and confirmed!');
+                fetchPayments();
+                fetchStats();
+            } else {
+                toast.error(`Razorpay status: "${data?.data?.razorpayStatus}" — not yet paid`);
+            }
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? 'Failed to verify with Razorpay');
+        } finally {
+            setVerifyLoading(null);
         }
     };
 
@@ -312,12 +369,33 @@ export default function PaymentsPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => handleViewReceipt(payment.id)}
-                                            className="text-emerald-600 hover:text-emerald-800 text-sm font-medium hover:underline"
-                                        >
-                                            View
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleViewReceipt(payment.id)}
+                                                className="text-emerald-600 hover:text-emerald-800 text-sm font-medium hover:underline"
+                                            >
+                                                View
+                                            </button>
+                                            {user?.role === 'GLOBAL_ADMIN' && payment.status === 'PENDING' && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleVerifyWithRazorpay(payment.id)}
+                                                    disabled={verifyLoading === payment.id}
+                                                    className="p-1.5 hover:bg-blue-50 rounded-lg text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
+                                                >
+                                                    {verifyLoading === payment.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Verify with Razorpay</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => openConfirmModal(payment)}
+                                                    className="p-1.5 hover:bg-green-50 rounded-lg text-gray-400 hover:text-green-600 transition-colors group relative"
+                                                >
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Confirm Payment</span>
+                                                </button>
+                                            </>
+                                            )}
+                                        </div>
                                     </td>
                                 </motion.tr>
                             ))}
@@ -433,6 +511,24 @@ export default function PaymentsPage() {
                                             </div>
                                         )}
 
+                                        {/* Admin actions for PENDING payments */}
+                                        {user?.role === 'GLOBAL_ADMIN' && receipt.status === 'PENDING' && (
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => { setShowReceipt(false); handleVerifyWithRazorpay(receipt.id); }}
+                                                    className="flex-1 py-2.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium text-sm flex items-center justify-center gap-2 border border-blue-200"
+                                                >
+                                                    <RefreshCw className="w-4 h-4" /> Verify with Razorpay
+                                                </button>
+                                                <button
+                                                    onClick={() => { setShowReceipt(false); openConfirmModal({ id: receipt.id, amount: receipt.amount, paymentType: receipt.paymentType, status: receipt.status, razorpayOrderId: receipt.razorpayOrderId, description: receipt.description, createdAt: receipt.createdAt }); }}
+                                                    className="flex-1 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm flex items-center justify-center gap-2"
+                                                >
+                                                    <ShieldCheck className="w-4 h-4" /> Confirm Payment
+                                                </button>
+                                            </div>
+                                        )}
+
                                         {/* Footer */}
                                         <p className="text-xs text-gray-400 text-center pt-2">
                                             This is a system-generated receipt from SSFI.
@@ -441,6 +537,82 @@ export default function PaymentsPage() {
                                 ) : (
                                     <p className="text-center text-gray-500 py-8">Receipt not found</p>
                                 )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Confirm Payment Modal ──────────────────────────────────────── */}
+            <AnimatePresence>
+                {showConfirmModal && confirmPayment && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                        onClick={() => setShowConfirmModal(false)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white rounded-2xl shadow-xl max-w-md w-full"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className="w-5 h-5 text-green-600" />
+                                    <h3 className="text-lg font-bold text-gray-900">Confirm Payment</h3>
+                                </div>
+                                <button onClick={() => setShowConfirmModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                                    <X className="w-5 h-5 text-gray-500" />
+                                </button>
+                            </div>
+
+                            <div className="px-6 py-5 space-y-4">
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                    <p className="text-sm text-amber-800">
+                                        This will manually mark this payment as <strong>Completed</strong> and activate the associated registration. Only do this after verifying the payment in your Razorpay dashboard or bank statement.
+                                    </p>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Order ID</span>
+                                        <span className="font-mono text-xs text-gray-900">{confirmPayment.razorpayOrderId}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Amount</span>
+                                        <span className="font-medium text-gray-900">{formatCurrency(Number(confirmPayment.amount))}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Description</span>
+                                        <span className="text-gray-900 text-right max-w-[200px] truncate">{confirmPayment.description || confirmPayment.paymentType}</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Razorpay Payment ID <span className="text-gray-400">(optional)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={confirmRzpId}
+                                        onChange={e => setConfirmRzpId(e.target.value)}
+                                        placeholder="e.g. pay_ScwW7AoHtgn7iL"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Copy from Razorpay dashboard for record-keeping</p>
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <button onClick={() => setShowConfirmModal(false)}
+                                        className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm">
+                                        Cancel
+                                    </button>
+                                    <button onClick={handleManualConfirm} disabled={confirmLoading}
+                                        className="flex-1 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                                        {confirmLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                                        Confirm Payment
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>
