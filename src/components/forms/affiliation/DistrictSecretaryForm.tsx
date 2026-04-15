@@ -20,6 +20,7 @@ import { api } from '@/lib/api/client';
 import AffiliationLookupStep from './AffiliationLookupStep';
 import type { DistrictSecretaryFormData } from '@/types/affiliation';
 import { GENDERS } from '@/types/affiliation';
+import { compressImage, MAX_FILE_SIZE_MB } from '@/lib/utils/imageCompress';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -71,32 +72,32 @@ export default function DistrictSecretaryRegistrationForm() {
       .catch(() => {});
   }, []);
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     field: 'profilePhoto' | 'logo' | 'associationRegistrationCopy',
     setPreview: (v: string | null) => void
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const b64 = reader.result as string;
+    try {
+      const b64 = await compressImage(file);
       setPreview(b64);
       setValue(field, b64, { shouldValidate: true });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      toast.error('Failed to process image. Please try a different file.');
+    }
   };
 
-  const handlePhotoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const b64 = reader.result as string;
+    try {
+      const b64 = await compressImage(file);
       setPhotoPreview(b64);
       setValue('profilePhoto', b64, { shouldValidate: true });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      toast.error('Failed to process image. Please try a different file.');
+    }
   };
 
   const removePhoto = () => {
@@ -398,7 +399,7 @@ export default function DistrictSecretaryRegistrationForm() {
                         {errors.associationRegistrationCopy && <p className="text-[10px] text-red-500">Required</p>}
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 text-center mt-3">JPG, PNG up to 5MB each. Reg. certificate can also be PDF.</p>
+                    <p className="text-xs text-gray-400 text-center mt-3">JPG, PNG up to {MAX_FILE_SIZE_MB}MB each. Images are auto-compressed. Reg. certificate can also be PDF.</p>
                   </div>
                 </div>
 

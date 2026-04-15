@@ -19,6 +19,7 @@ import { useRenewal, type MemberLookupResult } from '@/lib/hooks/useAffiliationL
 import { api } from '@/lib/api/client';
 import AffiliationLookupStep from './AffiliationLookupStep';
 import type { ClubFormData } from '@/types/affiliation';
+import { compressImage, MAX_FILE_SIZE_MB } from '@/lib/utils/imageCompress';
 
 const formSchema = z.object({
   clubName: z.string().min(3, 'Club name must be at least 3 characters').max(200),
@@ -71,12 +72,16 @@ export default function ClubRegistrationForm() {
       .catch(() => {});
   }, []);
 
-  const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => { setLogoPreview(reader.result as string); setValue('clubLogo', reader.result as string); };
-    reader.readAsDataURL(file);
+    try {
+      const b64 = await compressImage(file, { maxWidth: 800, maxHeight: 800 });
+      setLogoPreview(b64);
+      setValue('clubLogo', b64);
+    } catch {
+      toast.error('Failed to process image. Please try a different file.');
+    }
   };
 
   const openRazorpay = (order: any, onVerify: (r: any) => Promise<void>) => {
@@ -344,7 +349,7 @@ export default function ClubRegistrationForm() {
                       )}
                       <input ref={logoRef} type="file" accept="image/*" onChange={handleLogo} className="hidden" />
                     </div>
-                    <div className="text-xs text-gray-400">PNG, JPG up to 5MB</div>
+                    <div className="text-xs text-gray-400">PNG, JPG up to {MAX_FILE_SIZE_MB}MB. Images are auto-compressed.</div>
                     {errors.clubLogo && <p className="text-xs text-red-500">{errors.clubLogo.message}</p>}
                   </div>
                 </div>

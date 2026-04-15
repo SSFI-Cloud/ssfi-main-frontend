@@ -20,6 +20,7 @@ import { api } from '@/lib/api/client';
 import AffiliationLookupStep from './AffiliationLookupStep';
 import type { StateSecretaryFormData } from '@/types/affiliation';
 import { GENDERS } from '@/types/affiliation';
+import { compressImage, MAX_FILE_SIZE_MB } from '@/lib/utils/imageCompress';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -106,16 +107,16 @@ export default function StateSecretaryRegistrationForm() {
   const handleFileUpload = (
     field: 'profilePhoto' | 'logo' | 'associationRegistrationCopy' | 'presidentPhoto',
     setPreview: (v: string | null) => void
-  ) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  ) => async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const b64 = reader.result as string;
+    try {
+      const b64 = await compressImage(file);
       setPreview(b64);
       setValue(field, b64, { shouldValidate: true });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      toast.error('Failed to process image. Please try a different file.');
+    }
   };
 
   const openRazorpay = (order: any, onVerify: (r: any) => Promise<void>) => {
@@ -437,7 +438,7 @@ export default function StateSecretaryRegistrationForm() {
                         {errors.associationRegistrationCopy && <p className="text-[10px] text-red-500">Required</p>}
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 text-center">JPG, PNG up to 5MB each. Registration certificate can also be PDF.</p>
+                    <p className="text-xs text-gray-400 text-center">JPG, PNG up to {MAX_FILE_SIZE_MB}MB each. Images are auto-compressed. Registration certificate can also be PDF.</p>
                   </div>
                 </div>
 

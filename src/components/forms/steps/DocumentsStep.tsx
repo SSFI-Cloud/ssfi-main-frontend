@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, Camera, X, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { compressImage } from '@/lib/utils/imageCompress';
 import { useRegistrationStore } from '@/lib/store/registrationStore';
 import { StudentRegistrationData } from '@/types/student';
 import AadhaarKYCVerification from '@/components/forms/shared/AadhaarKYCVerification';
@@ -79,17 +80,25 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
   const handleFileSelect = (
     field: 'profilePhoto' | 'birthCertificate',
     setPreviewFn: (url: string | null) => void
-  ) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  ) => async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const b64 = reader.result as string;
+    try {
+      const b64 = await compressImage(file);
       setPreviewFn(b64);
       setPreview(field as keyof typeof previews, b64);
       updateFormData({ [field]: b64 });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      // Fallback to raw base64 if compression fails
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const b64 = reader.result as string;
+        setPreviewFn(b64);
+        setPreview(field as keyof typeof previews, b64);
+        updateFormData({ [field]: b64 });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const removeFile = (field: 'profilePhoto' | 'birthCertificate', setPreviewFn: (url: string | null) => void) => {
