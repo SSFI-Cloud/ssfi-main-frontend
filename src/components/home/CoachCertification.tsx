@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowRight, Calendar, MapPin, Clock, CheckCircle2, GraduationCap, Users } from 'lucide-react';
+import { ArrowRight, Calendar, MapPin, Clock, CheckCircle2, GraduationCap } from 'lucide-react';
 const benefits = [
   'Official SSFI Coach Certification',
   'Comprehensive technique & safety training',
@@ -47,8 +47,6 @@ export default function CoachCertification({ programs }: CoachCertificationProps
       });
     }
   }, [programs]);
-
-  const pct = batch.totalSpots > 0 ? ((batch.totalSpots - batch.spotsLeft) / batch.totalSpots) * 100 : 0;
 
   return (
     <section className="relative py-16 sm:py-20 overflow-hidden">
@@ -114,22 +112,11 @@ export default function CoachCertification({ programs }: CoachCertificationProps
                   <div className="flex items-center gap-3 text-white/60"><MapPin className="w-5 h-5 text-emerald-400" /><span className="text-sm">{batch.location}</span></div>
                   <div className="flex items-center gap-3 text-white/60"><Clock className="w-5 h-5 text-teal-400" /><span className="text-sm">Deadline: {batch.deadline}</span></div>
                 </div>
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-white/40">Seats Filled</span>
-                    <span className="text-white font-medium">{batch.totalSpots - batch.spotsLeft}/{batch.totalSpots}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                    <motion.div initial={{ width: 0 }} whileInView={{ width: `${pct}%` }} viewport={{ once: true }} transition={{ duration: 1.2 }} className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400" />
-                  </div>
-                  {batch.spotsLeft > 0 && <p className="text-teal-400 text-xs font-medium mt-2">Only {batch.spotsLeft} spots remaining!</p>}
-                </div>
                 <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     <p className="text-emerald-400 text-sm font-bold">Registration Open</p>
                   </div>
-                  <div className="flex items-center gap-1 text-white/30"><Users className="w-4 h-4" /><span className="text-xs">{batch.spotsLeft} left</span></div>
                 </div>
                 <Link href="/coach-certification" className="group w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all duration-300">
                   Reserve Your Spot <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
