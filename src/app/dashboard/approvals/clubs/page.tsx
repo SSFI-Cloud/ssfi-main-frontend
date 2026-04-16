@@ -350,8 +350,16 @@ export default function ClubApprovalsPage() {
                         >
                             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl flex items-center justify-center">
-                                        <Shield className="w-6 h-6 text-white" />
+                                    <div className="w-12 h-12 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                        {viewingClub.logo_path ? (
+                                            <img
+                                                src={viewingClub.logo_path.startsWith('http') || viewingClub.logo_path.startsWith('data:') ? viewingClub.logo_path : `https://api.ssfiskate.com/${viewingClub.logo_path}`}
+                                                alt={viewingClub.club_name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <Shield className="w-6 h-6 text-emerald-500" />
+                                        )}
                                     </div>
                                     <div>
                                         <h2 className="text-xl font-bold text-gray-900">{viewingClub.club_name}</h2>

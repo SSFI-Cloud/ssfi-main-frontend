@@ -28,6 +28,7 @@ interface Club {
     verified: number;
     status: string;
     created_at: string;
+    logo_path: string | null;
 }
 
 interface StateOption { id: number; state_name: string; code: string; }
@@ -310,8 +311,16 @@ export default function ClubsPage() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-lg flex items-center justify-center">
-                                                <Shield className="w-5 h-5 text-white" />
+                                            <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-200 bg-gray-50">
+                                                {club.logo_path ? (
+                                                    <img
+                                                        src={club.logo_path.startsWith('http') || club.logo_path.startsWith('data:') ? club.logo_path : `https://api.ssfiskate.com/${club.logo_path}`}
+                                                        alt={club.club_name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <Shield className="w-5 h-5 text-emerald-500" />
+                                                )}
                                             </div>
                                             <div>
                                                 <p className="font-medium text-gray-900">{club.club_name}</p>

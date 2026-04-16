@@ -29,6 +29,7 @@ interface ClubProfile {
     established_year: string;
     address: string | null;
     website: string | null;
+    logo: string | null;
     status: string;
     district_name: string;
     district_code: string;
@@ -88,8 +89,16 @@ export default function ClubViewModal({ club, isLoading, onClose }: ClubViewModa
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-                                <Shield className="w-5 h-5 text-gray-900" />
+                            <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {club?.logo ? (
+                                    <img
+                                        src={club.logo.startsWith('http') || club.logo.startsWith('data:') ? club.logo : `https://api.ssfiskate.com/${club.logo}`}
+                                        alt={club.club_name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <Shield className="w-5 h-5 text-gray-900" />
+                                )}
                             </div>
                             <div>
                                 <h2 className="text-lg font-bold text-gray-900 leading-tight">
