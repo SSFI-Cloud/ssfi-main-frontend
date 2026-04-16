@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,11 +13,15 @@ import {
     Loader2,
     Clock,
     MapPin,
+    Phone,
+    Mail,
+    Calendar,
     X,
     Check,
     AlertCircle,
     Building2,
     RefreshCw,
+    AlertTriangle,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { toast } from 'react-hot-toast';
@@ -218,55 +222,62 @@ export default function ClubApprovalsPage() {
                 />
             </div>
 
-            {/* Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {isLoading ? (
-                    <div className="col-span-full py-16 text-center">
-                        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
-                        <p className="text-gray-500 mt-2 text-sm">Loading pending clubs…</p>
-                    </div>
-                ) : clubs.length === 0 ? (
-                    <div className="col-span-full py-16 text-center text-gray-500">
-                        <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-600 opacity-50" />
-                        <p>No {filter === 'ALL' ? '' : filter.toLowerCase() + ' '}club{filter === 'PENDING' ? ' approvals' : 's found'}</p>
-                    </div>
-                ) : (
-                    clubs.map((club, index) => (
+            {/* List */}
+            {isLoading ? (
+                <div className="flex justify-center py-16">
+                    <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+                </div>
+            ) : clubs.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                    <Building2 className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500">No {filter === 'ALL' ? '' : filter.toLowerCase() + ' '}club{filter === 'PENDING' ? ' approvals' : 's found'}</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {clubs.map((club, i) => (
                         <motion.div
                             key={club.id}
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                            transition={{ delay: i * 0.04 }}
+                            className="bg-white rounded-2xl p-5 border border-gray-200 flex flex-col md:flex-row justify-between md:items-center gap-4"
                         >
-                            <div className="p-4">
-                                <div className="flex items-start gap-3 mb-4">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl flex items-center justify-center shrink-0">
-                                        <Shield className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h3 className="font-semibold text-gray-900 truncate">{club.club_name}</h3>
-                                        <p className="text-xs text-emerald-600 font-mono">{club.membership_id}</p>
-                                    </div>
+                            <div className="space-y-2 min-w-0 flex-1">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <h3 className="text-lg font-semibold text-gray-900">{club.club_name}</h3>
+                                    <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-mono">{club.membership_id}</span>
+                                    <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
+                                        club.request_status === 'APPROVED' ? 'bg-green-100 text-green-600 border-green-500/20'
+                                        : club.request_status === 'REJECTED' ? 'bg-red-100 text-red-600 border-red-500/20'
+                                        : 'bg-yellow-100 text-yellow-600 border-yellow-500/20'
+                                    }`}>
+                                        {club.request_status}
+                                    </span>
                                 </div>
-                                <div className="space-y-1.5 text-sm text-gray-500">
-                                    <div className="flex items-center gap-2">
-                                        <Building2 className="w-4 h-4 shrink-0" />
-                                        <span className="truncate">{club.contact_person}</span>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-500">
+                                    {club.contact_person && club.contact_person !== 'N/A' && (
+                                        <div className="flex items-center gap-2"><Building2 className="w-4 h-4" /> {club.contact_person}</div>
+                                    )}
+                                    {club.email_address && club.email_address !== 'N/A' && (
+                                        <div className="flex items-center gap-2"><Mail className="w-4 h-4" /> {club.email_address}</div>
+                                    )}
+                                    {club.mobile_number && club.mobile_number !== 'N/A' && (
+                                        <div className="flex items-center gap-2"><Phone className="w-4 h-4" /> {club.mobile_number}</div>
+                                    )}
+                                    <div className="flex items-center gap-2 text-gray-900 font-medium">
+                                        <MapPin className="w-4 h-4 text-gray-600" />
+                                        {club.district_name}, {club.state_name}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <MapPin className="w-4 h-4 shrink-0" />
-                                        <span className="truncate">{club.district_name}, {club.state_name}</span>
+                                        <Calendar className="w-4 h-4" /> Applied: {new Date(club.created_at).toLocaleDateString('en-IN')}
                                     </div>
-                                    <p className="text-xs text-gray-600 pt-2 border-t border-gray-100 mt-2">
-                                        Submitted {new Date(club.created_at).toLocaleDateString('en-IN')}
-                                    </p>
                                 </div>
                             </div>
-                            <div className="px-4 pb-4 flex gap-2">
+
+                            <div className="flex items-center gap-2 shrink-0">
                                 <button
                                     onClick={() => setViewingClub(club)}
-                                    className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium flex items-center justify-center gap-1 transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                                 >
                                     <Eye className="w-4 h-4" /> View
                                 </button>
@@ -275,54 +286,48 @@ export default function ClubApprovalsPage() {
                                         <button
                                             onClick={() => handleApprove(club)}
                                             disabled={processingId === club.id}
-                                            className="flex-1 py-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 text-sm font-medium flex items-center justify-center gap-1 disabled:opacity-50 transition-colors"
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-green-100 hover:bg-green-200 text-green-600 rounded-lg border border-green-500/30 text-sm font-medium transition-colors disabled:opacity-50"
                                         >
-                                            {processingId === club.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                            {processingId === club.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                             Approve
                                         </button>
                                         <button
                                             onClick={() => openRejectModal(club)}
-                                            className="py-2 px-3 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm font-medium transition-colors"
-                                            title="Reject"
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg border border-red-500/30 text-sm font-medium transition-colors"
                                         >
-                                            <X className="w-4 h-4" />
+                                            <XCircle className="w-4 h-4" /> Reject
                                         </button>
                                     </>
                                 )}
-                                {club.request_status === 'APPROVED' && (
-                                    <span className="flex-1 py-2 bg-green-100 text-green-600 rounded-lg text-sm font-medium flex items-center justify-center gap-1">
-                                        <CheckCircle className="w-4 h-4" /> Approved
-                                    </span>
-                                )}
-                                {club.request_status === 'REJECTED' && (
-                                    <span className="flex-1 py-2 bg-red-100 text-red-600 rounded-lg text-sm font-medium flex items-center justify-center gap-1">
-                                        <XCircle className="w-4 h-4" /> Rejected
-                                    </span>
-                                )}
                             </div>
                         </motion.div>
-                    ))
-                )}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {/* Pagination */}
             {meta.totalPages > 1 && (
-                <div className="flex items-center justify-center gap-3">
-                    <button
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 transition-colors"
-                    >
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="text-gray-500 text-sm">Page {currentPage} of {meta.totalPages}</span>
-                    <button
-                        onClick={() => setCurrentPage(p => Math.min(meta.totalPages, p + 1))}
-                        disabled={currentPage === meta.totalPages}
-                        className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 transition-colors"
-                    >
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
+                <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
+                    <p className="text-sm text-gray-500">
+                        Showing {((currentPage - 1) * LIMIT) + 1}–{Math.min(currentPage * LIMIT, meta.total)} of {meta.total}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 transition-colors"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-gray-700 text-sm font-medium px-2">Page {currentPage} of {meta.totalPages}</span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(meta.totalPages, p + 1))}
+                            disabled={currentPage === meta.totalPages}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 transition-colors"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -422,6 +427,9 @@ export default function ClubApprovalsPage() {
                             className="bg-white rounded-2xl max-w-md w-full p-6"
                             onClick={e => e.stopPropagation()}
                         >
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle className="w-6 h-6 text-gray-900" />
+                            </div>
                             <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Reject Club</h3>
                             <p className="text-gray-500 text-center text-sm mb-6">
                                 Rejecting <span className="text-gray-900 font-medium">{selectedForReject.club_name}</span>

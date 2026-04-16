@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,12 +11,12 @@ import {
     Search,
     CheckCircle,
     XCircle,
+    ChevronLeft,
+    ChevronRight,
     Loader2,
     AlertCircle,
     RefreshCw,
-    X,
     AlertTriangle,
-    Send,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { toast } from 'react-hot-toast';
@@ -34,19 +34,28 @@ interface StateSecretary {
     createdAt: string;
 }
 
+interface Meta {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+}
+
 const STATUS_FILTERS = ['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const;
+const LIMIT = 10;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StateSecretariesApprovalPage() {
     const [secretaries, setSecretaries]           = useState<StateSecretary[]>([]);
+    const [meta, setMeta]                         = useState<Meta>({ total: 0, page: 1, limit: LIMIT, totalPages: 1 });
     const [loading, setLoading]                   = useState(true);
     const [error, setError]                       = useState<string | null>(null);
     const [actionLoading, setActionLoading]       = useState<string | null>(null);
-    const [resendLoading, setResendLoading]       = useState<string | null>(null);
     const [filter, setFilter]                     = useState<string>('PENDING');
     const [searchInput, setSearchInput]           = useState('');
     const [searchQuery, setSearchQuery]           = useState('');
+    const [currentPage, setCurrentPage]           = useState(1);
     const [showRejectModal, setShowRejectModal]   = useState(false);
     const [rejectTarget, setRejectTarget]         = useState<StateSecretary | null>(null);
     const [rejectReason, setRejectReason]         = useState('');
@@ -57,23 +66,32 @@ export default function StateSecretariesApprovalPage() {
         setLoading(true);
         setError(null);
         try {
-            const params: Record<string, any> = {};
+            const params: Record<string, any> = {
+                page: currentPage,
+                limit: LIMIT,
+            };
             if (filter !== 'ALL') params.status = filter;
             if (searchQuery) params.search = searchQuery;
 
             const res = await api.get('/state-secretaries', { params });
             const payload = (res.data as any).data ?? res.data;
-            // backend may return { data: [...] } or { data: { data: [...] } }
+            // backend may return { data: [...] } or { data: { data: [...], meta: {...} } }
             const list = Array.isArray(payload) ? payload
                 : Array.isArray(payload?.data) ? payload.data
                 : [];
+            const resMeta = payload?.meta;
             setSecretaries(list);
+            if (resMeta) {
+                setMeta(resMeta);
+            } else {
+                setMeta({ total: list.length, page: 1, limit: LIMIT, totalPages: 1 });
+            }
         } catch (err: any) {
             setError(err.response?.data?.message ?? 'Failed to load state secretaries');
         } finally {
             setLoading(false);
         }
-    }, [filter, searchQuery]);
+    }, [filter, searchQuery, currentPage]);
 
     useEffect(() => {
         fetchSecretaries();
@@ -81,7 +99,10 @@ export default function StateSecretariesApprovalPage() {
 
     // Debounce search
     useEffect(() => {
-        const t = setTimeout(() => setSearchQuery(searchInput), 400);
+        const t = setTimeout(() => {
+            setCurrentPage(1);
+            setSearchQuery(searchInput);
+        }, 400);
         return () => clearTimeout(t);
     }, [searchInput]);
 
@@ -125,21 +146,7 @@ export default function StateSecretariesApprovalPage() {
         }
     };
 
-    const handleResendCredentials = async (sec: StateSecretary) => {
-        setResendLoading(sec.id);
-        try {
-            await api.post('/admin/resend-credentials', { email: sec.email });
-            toast.success(`Credentials sent to ${sec.email}`);
-        } catch (err: any) {
-            toast.error(err.response?.data?.message ?? 'Failed to send credentials');
-        } finally {
-            setResendLoading(null);
-        }
-    };
-
     // ── Render ─────────────────────────────────────────────────────────────────
-
-    const pendingCount = secretaries.filter(s => s.status === 'PENDING').length;
 
     return (
         <div className="space-y-6">
@@ -153,7 +160,7 @@ export default function StateSecretariesApprovalPage() {
                 <div className="flex items-center gap-3">
                     {filter === 'PENDING' && (
                         <div className="px-4 py-2 bg-amber-100 text-amber-600 rounded-lg flex items-center gap-2 text-sm font-medium">
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>{pendingCount} Pending</span>}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>{meta.total} Pending</span>}
                         </div>
                     )}
                     <button
@@ -171,7 +178,7 @@ export default function StateSecretariesApprovalPage() {
                 {STATUS_FILTERS.map(l => (
                     <button
                         key={l}
-                        onClick={() => setFilter(l)}
+                        onClick={() => { setFilter(l); setCurrentPage(1); }}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                             filter === l
                                 ? 'bg-emerald-500 text-white'
@@ -253,7 +260,7 @@ export default function StateSecretariesApprovalPage() {
                                     <button
                                         onClick={() => handleApprove(sec)}
                                         disabled={actionLoading === sec.id}
-                                        className="flex items-center gap-2 px-4 py-2 bg-green-100 hover:bg-green-100 text-green-600 rounded-lg border border-green-500/30 transition-colors disabled:opacity-50"
+                                        className="flex items-center gap-2 px-4 py-2 bg-green-100 hover:bg-green-200 text-green-600 rounded-lg border border-green-500/30 transition-colors disabled:opacity-50"
                                     >
                                         {actionLoading === sec.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                                         Approve
@@ -261,7 +268,7 @@ export default function StateSecretariesApprovalPage() {
                                     <button
                                         onClick={() => openRejectModal(sec)}
                                         disabled={actionLoading === sec.id}
-                                        className="flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-100 text-red-600 rounded-lg border border-red-500/30 transition-colors disabled:opacity-50"
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg border border-red-500/30 transition-colors disabled:opacity-50"
                                     >
                                         {actionLoading === sec.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                                         Reject
@@ -271,6 +278,32 @@ export default function StateSecretariesApprovalPage() {
 
                         </motion.div>
                     ))}
+                </div>
+            )}
+
+            {/* Pagination */}
+            {meta.totalPages > 1 && (
+                <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 px-4 py-3">
+                    <p className="text-sm text-gray-500">
+                        Showing {((currentPage - 1) * LIMIT) + 1}–{Math.min(currentPage * LIMIT, meta.total)} of {meta.total}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 transition-colors"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-gray-700 text-sm font-medium px-2">Page {currentPage} of {meta.totalPages}</span>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(meta.totalPages, p + 1))}
+                            disabled={currentPage === meta.totalPages}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 transition-colors"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -296,7 +329,7 @@ export default function StateSecretariesApprovalPage() {
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Reject Application</h3>
                             <p className="text-gray-500 text-center text-sm mb-6">
-                                Rejecting <span className="text-gray-900 font-medium">{rejectTarget.name}</span>'s state secretary application.
+                                Rejecting <span className="text-gray-900 font-medium">{rejectTarget.name}</span>&apos;s state secretary application.
                             </p>
                             <textarea
                                 value={rejectReason}
