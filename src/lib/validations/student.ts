@@ -69,11 +69,14 @@ const clubCoachSchema = z.object({
     coachPhone: z.string().optional(),
 });
 
-// Address Schema
+// Address Schema — field names mirror AddressStep.tsx and the backend
+// validator (addressLine1/addressLine2/city/stateId/districtId/pincode).
 const addressSchema = z.object({
-    address: z.string().min(5, 'Address is required'),
+    addressLine1: z.string().min(5, 'Address is required'),
+    addressLine2: z.string().optional().or(z.literal('')),
     city: z.string().min(2, 'City is required'),
-    state: z.string().min(1, 'State is required'),
+    stateId: z.string().min(1, 'State is required'),
+    districtId: z.string().min(1, 'District is required'),
     pincode: z.string().length(6, 'Pincode must be 6 digits'),
 });
 
