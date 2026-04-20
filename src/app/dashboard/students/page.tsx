@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 import { toast } from 'react-hot-toast';
 import StudentViewModal from '@/components/dashboard/StudentViewModal';
 
@@ -73,6 +74,14 @@ export default function StudentsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'pending'>('all');
+    const [stateFilter, setStateFilter] = useState('all');
+    const [districtFilter, setDistrictFilter] = useState('all');
+    const [clubFilter, setClubFilter] = useState('all');
+
+    // Cascading location data for the filter dropdowns
+    const { fetchStates, data: stateList } = useStates();
+    const { fetchDistricts, data: districtList, clearDistricts } = useDistricts();
+    const { fetchClubs, data: clubList, clearClubs } = useClubs();
     const [sortField, setSortField] = useState('name');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [currentPage, setCurrentPage] = useState(1);
@@ -91,15 +100,25 @@ export default function StudentsPage() {
 
     const itemsPerPage = 10;
 
+    // Build the active query params once so fetch + export share a single
+    // source of truth. Export MUST respect every filter the admin has set.
+    const buildQueryParams = () => {
+        const params: any = { sortField, sortOrder };
+        if (searchQuery) params.search = searchQuery;
+        if (categoryFilter !== 'all') params.skateCategory = categoryFilter;
+        if (verificationFilter === 'verified') params.status = 'APPROVED';
+        if (verificationFilter === 'pending') params.status = 'PENDING';
+        if (stateFilter !== 'all') params.stateId = stateFilter;
+        if (districtFilter !== 'all') params.districtId = districtFilter;
+        if (clubFilter !== 'all') params.clubId = clubFilter;
+        return params;
+    };
+
     const fetchStudents = async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const params: any = { page: currentPage, limit: itemsPerPage, sortField, sortOrder };
-            if (searchQuery) params.search = searchQuery;
-            if (categoryFilter !== 'all') params.skateCategory = categoryFilter;
-            if (verificationFilter === 'verified') params.status = 'APPROVED';
-            if (verificationFilter === 'pending') params.status = 'PENDING';
+            const params: any = { page: currentPage, limit: itemsPerPage, ...buildQueryParams() };
 
             const response = await api.get('/students', { params });
 
@@ -127,7 +146,29 @@ export default function StudentsPage() {
 
     useEffect(() => {
         fetchStudents();
-    }, [currentPage, searchQuery, categoryFilter, verificationFilter, sortField, sortOrder]);
+    }, [currentPage, searchQuery, categoryFilter, verificationFilter, stateFilter, districtFilter, clubFilter, sortField, sortOrder]);
+
+    // Load states once on mount
+    useEffect(() => { fetchStates(); }, [fetchStates]);
+
+    // Cascade: reset lower filters when parent changes, and fetch the child list
+    useEffect(() => {
+        setDistrictFilter('all');
+        setClubFilter('all');
+        clearClubs();
+        if (stateFilter !== 'all') fetchDistricts(stateFilter);
+        else clearDistricts();
+        setCurrentPage(1);
+    }, [stateFilter]);
+
+    useEffect(() => {
+        setClubFilter('all');
+        if (districtFilter !== 'all') fetchClubs(districtFilter);
+        else clearClubs();
+        setCurrentPage(1);
+    }, [districtFilter]);
+
+    useEffect(() => { setCurrentPage(1); }, [clubFilter, categoryFilter, verificationFilter]);
 
     const calculateAge = (dob: string) => {
         if (!dob) return '—';
@@ -165,11 +206,9 @@ export default function StudentsPage() {
         }
     };
 
-    const handleExport = () => {
-        const rows = selectedIds.length > 0
-            ? students.filter(s => selectedIds.includes(s.id))
-            : students;
-        if (rows.length === 0) return;
+    const [isExporting, setIsExporting] = useState(false);
+
+    const buildCsv = (rows: Student[]) => {
         const headers = ['SSFI ID','Name','Father Name','Mobile','Email','DOB','Gender','Blood Group','Category','Club','District','State','Coach','School','Address','City','Pincode','Status','Created At'];
         const csvRows = [headers.join(',')];
         for (const s of rows) {
@@ -178,13 +217,51 @@ export default function StudentsPage() {
                 s.blood_group || '', s.category_name || '', s.club_name, s.district_name, s.state_name,
                 s.coach_name, s.school_name || '', (s.address || '').replace(/,/g, ' '), s.city || '',
                 s.pincode || '', s.approval_status, s.created_at
-            ].map(v => `"${v}"`).join(','));
+            ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
         }
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+        return csvRows.join('\n');
+    };
+
+    const downloadCsv = (csv: string) => {
+        const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `students_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click(); URL.revokeObjectURL(url);
+        a.href = url;
+        a.download = `students_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExport = async () => {
+        // Selection overrides everything — just export the checked rows.
+        if (selectedIds.length > 0) {
+            const rows = students.filter(s => selectedIds.includes(s.id));
+            if (rows.length === 0) return;
+            downloadCsv(buildCsv(rows));
+            toast.success(`Exported ${rows.length} selected`);
+            return;
+        }
+
+        // No selection → export every row that matches the current filters,
+        // not just the current page. Single backend call with a high limit
+        // and the exact same filter params as the table.
+        setIsExporting(true);
+        try {
+            const params: any = { page: 1, limit: 10000, ...buildQueryParams() };
+            const response = await api.get('/students', { params });
+            const resData = (response.data as any)?.data ?? response.data;
+            const rows: Student[] = resData?.students ?? [];
+            if (rows.length === 0) {
+                toast.error('No students match the current filters');
+                return;
+            }
+            downloadCsv(buildCsv(rows));
+            toast.success(`Exported ${rows.length} student${rows.length === 1 ? '' : 's'}`);
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? 'Failed to export');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     return (
@@ -196,8 +273,13 @@ export default function StudentsPage() {
                     <p className="text-gray-500 mt-1">Manage all registered skaters</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button onClick={handleExport} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2">
-                        <Download className="w-4 h-4" /> Export{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
+                    <button
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2 disabled:opacity-50"
+                    >
+                        {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        Export{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
                     </button>
                     {user?.role === 'GLOBAL_ADMIN' && (
                         <Link href="/dashboard/students/new" className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 flex items-center gap-2">
@@ -238,25 +320,70 @@ export default function StudentsPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
-                    <input type="text" value={searchQuery}
-                        onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                        placeholder="Search by name, UID, or mobile..."
-                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+            <div className="space-y-3">
+                <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
+                        <input type="text" value={searchQuery}
+                            onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                            placeholder="Search by name, UID, or mobile..."
+                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50" />
+                    </div>
+                    <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+                        className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+                        <option value="all">All Categories</option>
+                        {SKATE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                    <select value={verificationFilter} onChange={e => setVerificationFilter(e.target.value as any)}
+                        className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
+                        <option value="all">All Status</option>
+                        <option value="verified">Verified</option>
+                        <option value="pending">Pending</option>
+                    </select>
                 </div>
-                <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
-                    className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                    <option value="all">All Categories</option>
-                    {SKATE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-                <select value={verificationFilter} onChange={e => setVerificationFilter(e.target.value as any)}
-                    className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
-                    <option value="all">All Status</option>
-                    <option value="verified">Verified</option>
-                    <option value="pending">Pending</option>
-                </select>
+                <div className="flex flex-col md:flex-row gap-4">
+                    <select
+                        value={stateFilter}
+                        onChange={e => setStateFilter(e.target.value)}
+                        className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    >
+                        <option value="all">All States</option>
+                        {stateList.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <select
+                        value={districtFilter}
+                        onChange={e => setDistrictFilter(e.target.value)}
+                        disabled={stateFilter === 'all'}
+                        className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <option value="all">{stateFilter === 'all' ? 'Select state first' : 'All Districts'}</option>
+                        {districtList.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    <select
+                        value={clubFilter}
+                        onChange={e => setClubFilter(e.target.value)}
+                        disabled={districtFilter === 'all'}
+                        className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <option value="all">{districtFilter === 'all' ? 'Select district first' : 'All Clubs'}</option>
+                        {clubList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    {(stateFilter !== 'all' || districtFilter !== 'all' || clubFilter !== 'all' || categoryFilter !== 'all' || verificationFilter !== 'all') && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setStateFilter('all');
+                                setDistrictFilter('all');
+                                setClubFilter('all');
+                                setCategoryFilter('all');
+                                setVerificationFilter('all');
+                            }}
+                            className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium whitespace-nowrap"
+                        >
+                            Clear filters
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Table */}
