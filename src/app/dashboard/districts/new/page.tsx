@@ -160,7 +160,7 @@ export default function NewDistrictPage() {
                     termsAccepted: true,
                 };
 
-                const res = await api.post('/affiliations/district-secretary/initiate', affiliationPayload);
+                const res = await api.post('/affiliations/district-secretary/admin-initiate', affiliationPayload);
                 const order = res.data?.data || res.data;
                 if (order?.razorpayOrderId) {
                     const link = `${window.location.origin}/register/payment?orderId=${order.razorpayOrderId}&amount=${order.amount}&name=${encodeURIComponent(formData.secretaryName)}&uid=${encodeURIComponent(order.uid || '')}&type=district-secretary&key=${order.key}`;

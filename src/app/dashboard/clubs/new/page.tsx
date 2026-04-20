@@ -128,7 +128,7 @@ export default function NewClubPage() {
                 toast.success('Club created successfully!');
                 setTimeout(() => router.push('/dashboard/clubs'), 2000);
             } else {
-                const res = await api.post('/affiliations/club/initiate', payload);
+                const res = await api.post('/affiliations/club/admin-initiate', payload);
                 const order = res.data?.data || res.data;
                 if (order?.razorpayOrderId) {
                     const link = `${window.location.origin}/register/payment?orderId=${order.razorpayOrderId}&amount=${order.amount}&name=${encodeURIComponent(formData.clubName)}&uid=${encodeURIComponent(order.uid || '')}&type=club&key=${order.key}`;
