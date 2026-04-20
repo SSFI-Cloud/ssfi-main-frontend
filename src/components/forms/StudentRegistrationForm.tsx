@@ -75,11 +75,14 @@ export default function StudentRegistrationForm() {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      const validationResult = registrationSchema.safeParse(formData);
+      // The child step components (esp. DocumentsStep) call updateFormData
+      // and then onSubmit() in the same tick. Our own `formData` closure
+      // was captured at the last render — so reads here would miss those
+      // just-written fields. Pull the live state from zustand instead.
+      const liveFormData = useRegistrationStore.getState().formData;
+      const validationResult = registrationSchema.safeParse(liveFormData);
       if (!validationResult.success) {
         const errors = validationResult.error.issues;
-        // Log the full list of issues so you can see every missing/invalid
-        // field in the browser console — easier to debug than a single toast.
         // eslint-disable-next-line no-console
         console.warn('[student-registration] validation issues:', errors);
         const first = errors[0];
@@ -93,7 +96,7 @@ export default function StudentRegistrationForm() {
       }
 
       // Step 1: Submit registration + create payment order
-      const order = await initiateStudentRegistration(formData as StudentRegistrationData);
+      const order = await initiateStudentRegistration(liveFormData as StudentRegistrationData);
 
       // Step 2: Open Razorpay checkout
       openRazorpay(order, async (response) => {
