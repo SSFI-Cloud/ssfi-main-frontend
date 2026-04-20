@@ -102,7 +102,12 @@ export default function RegisteredStudentsPage() {
         setError(null);
         try {
             const params: Record<string, any> = {
-                status: 'APPROVED', // payment-verify auto-flips to APPROVED
+                // Require at least one COMPLETED Razorpay payment of
+                // STUDENT_REGISTRATION or RENEWAL_FEE type. This keeps
+                // legacy/migrated "APPROVED" students (no Payment row)
+                // out of the list — we only want people who went through
+                // the current paid-registration flow.
+                hasCompletedPayment: 'true',
                 page: currentPage,
                 limit: LIMIT,
             };
