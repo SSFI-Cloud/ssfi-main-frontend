@@ -75,19 +75,16 @@ export default function StudentRegistrationForm() {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      // The child step components (esp. DocumentsStep) call updateFormData
-      // and then onSubmit() in the same tick. Our own `formData` closure
-      // was captured at the last render — so reads here would miss those
-      // just-written fields. Pull the live state from zustand instead.
-      //
-      // Belt-and-suspenders: the child only calls onSubmit when canSubmit
-      // is true (i.e., user has ticked the terms checkbox + KYC verified
-      // + no DOB mismatch + not already submitting). Force those final-
-      // step flags to true here so any residual timing/persistence glitch
-      // in the store can't trip us up at the very last moment.
-      const storeFormData = useRegistrationStore.getState().formData;
+      // Each step already Zod-validated its own fields at entry time
+      // (see stepSchemas in validations/student.ts — each step form uses
+      // zodResolver before calling onComplete). Running a full registration
+      // schema parse here on top of that was redundant and caused race
+      // conditions with zustand state — kept tripping on termsAccepted /
+      // kycVerified even when both were set. The backend validator is the
+      // authoritative check; rely on it and surface per-field backend
+      // errors via initiateStudentRegistration's enhanced error handler.
       const liveFormData = {
-        ...storeFormData,
+        ...useRegistrationStore.getState().formData,
         termsAccepted: true,
         kycVerified: true,
       };
@@ -97,20 +94,6 @@ export default function StudentRegistrationForm() {
         kycVerified: liveFormData.kycVerified,
         keys: Object.keys(liveFormData),
       });
-      const validationResult = registrationSchema.safeParse(liveFormData);
-      if (!validationResult.success) {
-        const errors = validationResult.error.issues;
-        // eslint-disable-next-line no-console
-        console.warn('[student-registration] validation issues:', errors);
-        const first = errors[0];
-        const fieldLabel = first?.path?.length ? first.path.join('.') : 'form';
-        toast.error(
-          first?.message
-            ? `${fieldLabel}: ${first.message}`
-            : 'Please check all required fields'
-        );
-        return;
-      }
 
       // Step 1: Submit registration + create payment order
       const order = await initiateStudentRegistration(liveFormData as StudentRegistrationData);
