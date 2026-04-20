@@ -78,7 +78,17 @@ export default function StudentRegistrationForm() {
       const validationResult = registrationSchema.safeParse(formData);
       if (!validationResult.success) {
         const errors = validationResult.error.issues;
-        toast.error(errors[0]?.message || 'Please check all required fields');
+        // Log the full list of issues so you can see every missing/invalid
+        // field in the browser console — easier to debug than a single toast.
+        // eslint-disable-next-line no-console
+        console.warn('[student-registration] validation issues:', errors);
+        const first = errors[0];
+        const fieldLabel = first?.path?.length ? first.path.join('.') : 'form';
+        toast.error(
+          first?.message
+            ? `${fieldLabel}: ${first.message}`
+            : 'Please check all required fields'
+        );
         return;
       }
 
