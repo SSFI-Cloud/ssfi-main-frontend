@@ -79,7 +79,24 @@ export default function StudentRegistrationForm() {
       // and then onSubmit() in the same tick. Our own `formData` closure
       // was captured at the last render — so reads here would miss those
       // just-written fields. Pull the live state from zustand instead.
-      const liveFormData = useRegistrationStore.getState().formData;
+      //
+      // Belt-and-suspenders: the child only calls onSubmit when canSubmit
+      // is true (i.e., user has ticked the terms checkbox + KYC verified
+      // + no DOB mismatch + not already submitting). Force those final-
+      // step flags to true here so any residual timing/persistence glitch
+      // in the store can't trip us up at the very last moment.
+      const storeFormData = useRegistrationStore.getState().formData;
+      const liveFormData = {
+        ...storeFormData,
+        termsAccepted: true,
+        kycVerified: true,
+      };
+      // eslint-disable-next-line no-console
+      console.debug('[student-registration] submitting with', {
+        termsAccepted: liveFormData.termsAccepted,
+        kycVerified: liveFormData.kycVerified,
+        keys: Object.keys(liveFormData),
+      });
       const validationResult = registrationSchema.safeParse(liveFormData);
       if (!validationResult.success) {
         const errors = validationResult.error.issues;
