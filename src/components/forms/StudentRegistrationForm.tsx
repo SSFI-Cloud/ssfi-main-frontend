@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import {
   User, Home, Shield, Users, MapPin, FileText,
   ChevronLeft, ChevronRight, Check, Loader2, RefreshCw,
+  CheckCircle2, Pencil, ChevronDown, ChevronUp, Save,
 } from 'lucide-react';
 
 import { useRegistrationStore } from '@/lib/store/registrationStore';
@@ -43,6 +44,12 @@ export default function StudentRegistrationForm() {
   const [mode, setMode] = useState<Mode>('choose');
   const [renewMember, setRenewMember] = useState<MemberLookupResult | null>(null);
   const [renewKycResult, setRenewKycResult] = useState<KycResult | null>(null);
+  const [renewProfile, setRenewProfile] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [profileEdits, setProfileEdits] = useState<any>({});
+  const [profileSaveLoading, setProfileSaveLoading] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -119,6 +126,73 @@ export default function StudentRegistrationForm() {
     rzp.open();
   };
 
+  // Fetch student profile + check existing KYC when member is found
+  const handleMemberFound = async (member: MemberLookupResult) => {
+    setRenewMember(member);
+    setMode('renew');
+    setIsLoadingProfile(true);
+    setRenewProfile(null);
+    setProfileSaved(false);
+    setShowProfileEdit(false);
+    try {
+      const res = await api.get('/affiliations/renew/student-profile', { params: { uid: member.uid } });
+      const profile = res.data?.data;
+      setRenewProfile(profile);
+      setProfileEdits({ ...profile });
+      // If KYC was already done before, skip re-verification
+      if (profile?.kycVerified) {
+        setRenewKycResult({
+          verified: true,
+          fullName: profile.kycVerifiedName || member.name,
+          dob: profile.kycVerifiedDob || '',
+          gender: '',
+          careOf: '',
+        } as KycResult);
+      }
+    } catch {
+      // Profile fetch failed — non-fatal, KYC will still show
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  // Called when KYC completes (new verification) — persist to backend
+  const handleKycVerified = async (result: KycResult) => {
+    setRenewKycResult(result);
+    if (!renewMember) return;
+    try {
+      await api.post('/affiliations/renew/save-kyc', {
+        uid: renewMember.uid,
+        fullName: result.fullName,
+        dob: result.dob,
+        gender: result.gender,
+        photo: result.profileImage,
+      });
+      // Update local profile state to reflect KYC is now done
+      setRenewProfile((prev: any) => prev ? {
+        ...prev, kycVerified: true, kycVerifiedName: result.fullName, kycVerifiedDob: result.dob,
+      } : prev);
+    } catch {
+      // Non-fatal — payment can still proceed
+    }
+  };
+
+  // Save edited profile fields
+  const handleSaveProfile = async () => {
+    if (!renewMember) return;
+    setProfileSaveLoading(true);
+    try {
+      await api.patch('/affiliations/renew/student-profile', { uid: renewMember.uid, ...profileEdits });
+      setProfileSaved(true);
+      setShowProfileEdit(false);
+      toast.success('Profile updated');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save profile');
+    } finally {
+      setProfileSaveLoading(false);
+    }
+  };
+
   const handleRenew = async () => {
     if (!renewMember) return;
     try {
@@ -191,7 +265,7 @@ export default function StudentRegistrationForm() {
               <div className="p-6">
                 <AffiliationLookupStep
                   type="STUDENT"
-                  onFound={(member) => { setRenewMember(member); setMode('renew'); }}
+                  onFound={handleMemberFound}
                   onNew={() => setMode('new')}
                 />
               </div>
@@ -205,44 +279,199 @@ export default function StudentRegistrationForm() {
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Renew Student Membership</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">Verify identity and proceed to payment</p>
+                  <p className="text-sm text-gray-500 mt-0.5">Verify identity, review details, then pay</p>
                 </div>
-                <button onClick={() => { setMode('choose'); setRenewMember(null); setRenewKycResult(null); }} className="text-sm text-gray-400 hover:text-gray-600">Change</button>
+                <button onClick={() => {
+                  setMode('choose'); setRenewMember(null); setRenewKycResult(null);
+                  setRenewProfile(null); setProfileEdits({}); setProfileSaved(false); setShowProfileEdit(false);
+                }} className="text-sm text-gray-400 hover:text-gray-600">Change</button>
               </div>
-              <div className="p-6 space-y-4">
-                {/* Member details */}
-                <div className="p-4 bg-green-50 border border-green-100 rounded-xl space-y-2">
-                  <div className="flex justify-between text-sm"><span className="text-gray-500">Name</span><span className="font-medium text-gray-900">{renewMember.name}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-500">UID</span><span className="font-mono text-gray-900">{renewMember.uid}</span></div>
-                  {renewMember.clubName && <div className="flex justify-between text-sm"><span className="text-gray-500">Club</span><span className="text-gray-900">{renewMember.clubName}</span></div>}
-                  {renewMember.stateName && <div className="flex justify-between text-sm"><span className="text-gray-500">State</span><span className="text-gray-900">{renewMember.stateName}</span></div>}
-                  {renewMember.expiryDate && <div className="flex justify-between text-sm"><span className="text-gray-500">Current Expiry</span><span className="text-gray-900">{new Date(renewMember.expiryDate).toLocaleDateString('en-IN')}</span></div>}
-                </div>
 
-                {/* KYC Verification — required before payment */}
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Step 1 — Verify Identity</p>
-                  <AadhaarKYCVerification
-                    onVerified={(result) => setRenewKycResult(result)}
-                    showProfilePhotoChoice={false}
-                    colorScheme="emerald"
-                    initialResult={renewKycResult}
-                  />
+              {isLoadingProfile ? (
+                <div className="p-10 flex items-center justify-center gap-3 text-gray-400">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">Loading profile…</span>
                 </div>
+              ) : (
+                <div className="p-6 space-y-5">
 
-                {/* Extension notice */}
-                <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
-                  <p className="text-sm text-amber-700">Renewing will extend your membership by 1 year from the current expiry date.</p>
+                  {/* ── Member summary card ── */}
+                  <div className="p-4 bg-green-50 border border-green-100 rounded-xl space-y-2">
+                    <div className="flex justify-between text-sm"><span className="text-gray-500">Name</span><span className="font-medium text-gray-900">{renewMember.name}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-500">UID</span><span className="font-mono text-gray-900">{renewMember.uid}</span></div>
+                    {renewMember.clubName && <div className="flex justify-between text-sm"><span className="text-gray-500">Club</span><span className="text-gray-900">{renewMember.clubName}</span></div>}
+                    {renewMember.stateName && <div className="flex justify-between text-sm"><span className="text-gray-500">State</span><span className="text-gray-900">{renewMember.stateName}</span></div>}
+                    {renewMember.expiryDate && <div className="flex justify-between text-sm"><span className="text-gray-500">Current Expiry</span><span className="text-gray-900">{new Date(renewMember.expiryDate).toLocaleDateString('en-IN')}</span></div>}
+                  </div>
+
+                  {/* ── Step 1: Identity Verification ── */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Step 1 — Verify Identity</p>
+                    {renewProfile?.kycVerified ? (
+                      /* Already verified — show badge instead of re-running DigiLocker */
+                      <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-emerald-800">Identity previously verified</p>
+                          <p className="text-xs text-emerald-600 mt-0.5">
+                            Aadhaar KYC completed as <span className="font-medium">{renewProfile.kycVerifiedName}</span>
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <AadhaarKYCVerification
+                        onVerified={handleKycVerified}
+                        showProfilePhotoChoice={false}
+                        colorScheme="emerald"
+                        initialResult={renewKycResult}
+                      />
+                    )}
+                  </div>
+
+                  {/* ── Step 2: Review / Edit Profile (shown after KYC) ── */}
+                  {renewKycResult?.verified && renewProfile && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Step 2 — Review &amp; Update Details</p>
+                      <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setShowProfileEdit(v => !v)}
+                          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700 transition-colors"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Pencil className="w-4 h-4 text-gray-400" />
+                            {profileSaved ? 'Profile updated ✓' : 'Review or update your details'}
+                          </span>
+                          {showProfileEdit ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </button>
+
+                        {showProfileEdit && (
+                          <div className="p-4 space-y-4">
+                            {/* Address */}
+                            <div>
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Address</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2">
+                                  <label className="text-xs text-gray-500 mb-1 block">Address Line 1</label>
+                                  <input value={profileEdits.addressLine1 || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, addressLine1: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div className="col-span-2">
+                                  <label className="text-xs text-gray-500 mb-1 block">Address Line 2</label>
+                                  <input value={profileEdits.addressLine2 || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, addressLine2: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">City</label>
+                                  <input value={profileEdits.city || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, city: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Pincode</label>
+                                  <input value={profileEdits.pincode || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, pincode: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* School */}
+                            <div>
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">School</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2">
+                                  <label className="text-xs text-gray-500 mb-1 block">School Name</label>
+                                  <input value={profileEdits.schoolName || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, schoolName: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Academic Board</label>
+                                  <input value={profileEdits.academicBoard || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, academicBoard: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Blood Group</label>
+                                  <select value={profileEdits.bloodGroup || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, bloodGroup: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300">
+                                    <option value="">Select</option>
+                                    {['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','AB_POSITIVE','AB_NEGATIVE','O_POSITIVE','O_NEGATIVE'].map(bg => (
+                                      <option key={bg} value={bg}>{bg.replace('_', ' ')}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Coach */}
+                            <div>
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Coach</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Coach Name</label>
+                                  <input value={profileEdits.coachName || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, coachName: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Coach Phone</label>
+                                  <input value={profileEdits.coachPhone || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, coachPhone: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Nominee */}
+                            <div>
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Nominee</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2">
+                                  <label className="text-xs text-gray-500 mb-1 block">Nominee Name</label>
+                                  <input value={profileEdits.nomineeName || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, nomineeName: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Nominee Age</label>
+                                  <input type="number" value={profileEdits.nomineeAge || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, nomineeAge: Number(e.target.value) }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Relation</label>
+                                  <input value={profileEdits.nomineeRelation || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, nomineeRelation: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Email */}
+                            <div>
+                              <label className="text-xs text-gray-500 mb-1 block">Email</label>
+                              <input type="email" value={profileEdits.email || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, email: e.target.value }))}
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                            </div>
+
+                            <button type="button" onClick={handleSaveProfile} disabled={profileSaveLoading}
+                              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+                              {profileSaveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              Save Changes
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Extension notice ── */}
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                    <p className="text-sm text-amber-700">Renewing will extend your membership by 1 year from the current expiry date.</p>
+                  </div>
+
+                  {/* ── Payment button — only enabled after KYC ── */}
+                  <button type="button" onClick={handleRenew}
+                    disabled={renewLoading || !renewKycResult?.verified}
+                    className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
+                    {renewLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                    {renewKycResult?.verified ? 'Proceed to Payment' : 'Complete Verification to Continue'}
+                  </button>
                 </div>
-
-                {/* Payment button — only enabled after KYC */}
-                <button type="button" onClick={handleRenew}
-                  disabled={renewLoading || !renewKycResult?.verified}
-                  className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
-                  {renewLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-                  {renewKycResult?.verified ? 'Proceed to Payment' : 'Complete Verification to Continue'}
-                </button>
-              </div>
+              )}
             </motion.div>
           )}
 
