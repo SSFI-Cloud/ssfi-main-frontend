@@ -17,6 +17,10 @@ export interface MemberLookupResult {
   expiryDate: string | null;
   accountStatus: string | null;
   id: string | number;
+  // Student-specific
+  dateOfBirth?: string;
+  age?: number;
+  ageCategory?: string;
 }
 
 export const useAffiliationLookup = () => {

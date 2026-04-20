@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 import { useRegistrationStore } from '@/lib/store/registrationStore';
-import { useRegisterStudent } from '@/lib/hooks/useStudent';
+import { useRegisterStudent, calculateAge, getAgeCategoryFromAge } from '@/lib/hooks/useStudent';
 import { registrationSchema } from '@/lib/validations/student';
 import { useRenewal, type MemberLookupResult } from '@/lib/hooks/useAffiliationLookup';
 import { api } from '@/lib/api/client';
@@ -302,6 +302,22 @@ export default function StudentRegistrationForm() {
                     {renewMember.clubName && <div className="flex justify-between text-sm"><span className="text-gray-500">Club</span><span className="text-gray-900">{renewMember.clubName}</span></div>}
                     {renewMember.stateName && <div className="flex justify-between text-sm"><span className="text-gray-500">State</span><span className="text-gray-900">{renewMember.stateName}</span></div>}
                     {renewMember.expiryDate && <div className="flex justify-between text-sm"><span className="text-gray-500">Current Expiry</span><span className="text-gray-900">{new Date(renewMember.expiryDate).toLocaleDateString('en-IN')}</span></div>}
+                    {/* Age category — computed from DOB returned by lookup */}
+                    {(() => {
+                      const dob = renewMember.dateOfBirth || renewProfile?.dateOfBirth;
+                      if (!dob) return null;
+                      const age = calculateAge(dob);
+                      const category = getAgeCategoryFromAge(age);
+                      return (
+                        <div className="flex justify-between text-sm items-center pt-1 border-t border-green-200">
+                          <span className="text-gray-500">Age Category</span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-gray-700">{age} yrs (as of Jan 1, {new Date().getFullYear()})</span>
+                            <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full font-semibold">{category}</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* ── Step 1: Identity Verification ── */}
