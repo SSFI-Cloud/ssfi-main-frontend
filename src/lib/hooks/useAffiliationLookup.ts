@@ -81,6 +81,17 @@ export const useRenewal = () => {
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Failed to initiate renewal.';
       setError(msg);
+      // Surface specific backend errors as a toast so users see actionable
+      // text instead of a silently-failed "Pay & Renew" button. Important
+      // cases include 409 "already renewed" and 400 window/status errors —
+      // users were tapping the button repeatedly because nothing ever said
+      // what was wrong.
+      try {
+        const { toast } = await import('react-hot-toast');
+        toast.error(msg, { duration: 6000 });
+      } catch {
+        // no-op if toast lib isn't available in this context
+      }
       return null;
     } finally {
       setIsLoading(false);
