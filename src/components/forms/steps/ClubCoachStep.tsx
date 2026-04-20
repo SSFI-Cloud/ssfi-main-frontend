@@ -52,7 +52,11 @@ export default function ClubCoachStep({ onComplete }: { onComplete: (data: FormD
     if (watchState !== selectedState) {
       setSelectedState(watchState);
       setValue('districtId', '');
-      setValue('clubId', '');
+      // In 'school' mode the clubId is derived from the Step 2 school
+      // name and is independent of the state/district cascade, so don't
+      // clobber it here — otherwise toggling School + then picking a
+      // state/district wipes the school: placeholder and blocks Next.
+      if (clubMode !== 'school') setValue('clubId', '');
       setSelectedDistrict('');
       if (watchState) fetchDistricts(watchState); else clearDistricts();
     }
@@ -61,22 +65,23 @@ export default function ClubCoachStep({ onComplete }: { onComplete: (data: FormD
   useEffect(() => {
     if (watchDistrict !== selectedDistrict) {
       setSelectedDistrict(watchDistrict);
-      setValue('clubId', '');
+      if (clubMode !== 'school') setValue('clubId', '');
       if (watchDistrict) fetchClubs(watchDistrict); else clearClubs();
     }
   }, [watchDistrict]);
 
-  // When school mode is selected, auto-set clubId to "school" placeholder
+  // When school mode is selected, auto-set clubId to "school" placeholder.
+  // Also re-run whenever state/district change so any watchState /
+  // watchDistrict reset above is immediately restored.
   useEffect(() => {
     if (clubMode === 'school') {
-      // Use the school name from Step 2 as the club identifier
       const schoolName = formData.schoolName;
       if (schoolName) {
         setValue('clubId', `school:${schoolName}`);
       }
     }
     setValue('clubMode', clubMode);
-  }, [clubMode, formData.schoolName]);
+  }, [clubMode, formData.schoolName, watchState, watchDistrict]);
 
   const onSubmit = (data: FormData) => { updateFormData({ ...data, clubMode }); onComplete(data); };
 
