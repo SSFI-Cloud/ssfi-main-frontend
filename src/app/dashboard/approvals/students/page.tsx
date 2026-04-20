@@ -1,27 +1,33 @@
-﻿'use client';
+'use client';
+
+/**
+ * Registered Students
+ *
+ * Lists every student whose registration has been paid for (auto-approved
+ * by verifyStudentPayment — User.approvalStatus = 'APPROVED'). No admin
+ * approval step exists for student registrations anymore; successful
+ * payment is the qualifier.
+ *
+ * (File lives under /dashboard/approvals/students/ for backwards-compat
+ * with the old route. The UI is read-only — view details only.)
+ */
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Users,
     Search,
-    CheckCircle,
-    XCircle,
     Eye,
     ChevronLeft,
     ChevronRight,
     Loader2,
-    Clock,
     User,
-    FileText,
     X,
-    Check,
-    AlertTriangle,
     AlertCircle,
     RefreshCw,
+    CheckCircle2,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
-import { toast } from 'react-hot-toast';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,23 +82,16 @@ function fmtDate(d: string) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function StudentApprovalsPage() {
-    const [students, setStudents]               = useState<Student[]>([]);
-    const [meta, setMeta]                       = useState<Meta>({ total: 0, page: 1, limit: 10, totalPages: 1 });
-    const [stats, setStats]                     = useState<Stats | null>(null);
-    const [searchQuery, setSearchQuery]         = useState('');
-    const [searchInput, setSearchInput]         = useState('');
-    const [currentPage, setCurrentPage]         = useState(1);
-    const [isLoading, setIsLoading]             = useState(true);
-    const [error, setError]                     = useState<string | null>(null);
-    const [viewingStudent, setViewingStudent]   = useState<Student | null>(null);
-    const [processingId, setProcessingId]       = useState<number | null>(null);
-    const [rejectReason, setRejectReason]       = useState('');
-    const [showRejectModal, setShowRejectModal] = useState(false);
-    const [selectedForReject, setSelectedForReject] = useState<Student | null>(null);
-    // Bulk selection
-    const [selectedIds, setSelectedIds]         = useState<Set<number>>(new Set());
-    const [isBulkApproving, setIsBulkApproving] = useState(false);
+export default function RegisteredStudentsPage() {
+    const [students, setStudents]             = useState<Student[]>([]);
+    const [meta, setMeta]                     = useState<Meta>({ total: 0, page: 1, limit: 10, totalPages: 1 });
+    const [stats, setStats]                   = useState<Stats | null>(null);
+    const [searchQuery, setSearchQuery]       = useState('');
+    const [searchInput, setSearchInput]       = useState('');
+    const [currentPage, setCurrentPage]       = useState(1);
+    const [isLoading, setIsLoading]           = useState(true);
+    const [error, setError]                   = useState<string | null>(null);
+    const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
 
     const LIMIT = 10;
 
@@ -103,7 +102,7 @@ export default function StudentApprovalsPage() {
         setError(null);
         try {
             const params: Record<string, any> = {
-                status: 'PENDING',
+                status: 'APPROVED', // payment-verify auto-flips to APPROVED
                 page: currentPage,
                 limit: LIMIT,
             };
@@ -115,9 +114,8 @@ export default function StudentApprovalsPage() {
             setStudents(payload.students ?? []);
             setMeta(payload.meta ?? { total: 0, page: 1, limit: LIMIT, totalPages: 1 });
             if (payload.stats) setStats(payload.stats);
-            setSelectedIds(new Set()); // Clear selection on data refresh
         } catch (err: any) {
-            const msg = err.response?.data?.message ?? 'Failed to load pending students';
+            const msg = err.response?.data?.message ?? 'Failed to load registered students';
             setError(msg);
         } finally {
             setIsLoading(false);
@@ -137,86 +135,6 @@ export default function StudentApprovalsPage() {
         return () => clearTimeout(t);
     }, [searchInput]);
 
-    // ── Actions ────────────────────────────────────────────────────────────────
-
-    const handleApprove = async (student: Student) => {
-        setProcessingId(student.id);
-        try {
-            await api.put(`/students/${student.id}/status`, { status: 'APPROVED' });
-            toast.success(`${student.name} approved successfully`);
-            setViewingStudent(null);
-            fetchStudents();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message ?? 'Failed to approve student');
-        } finally {
-            setProcessingId(null);
-        }
-    };
-
-    const handleReject = async () => {
-        if (!selectedForReject) return;
-        setProcessingId(selectedForReject.id);
-        try {
-            await api.put(`/students/${selectedForReject.id}/status`, {
-                status: 'REJECTED',
-                remarks: rejectReason || undefined,
-            });
-            toast.success(`${selectedForReject.name}'s registration rejected`);
-            setShowRejectModal(false);
-            setSelectedForReject(null);
-            setRejectReason('');
-            setViewingStudent(null);
-            fetchStudents();
-        } catch (err: any) {
-            toast.error(err.response?.data?.message ?? 'Failed to reject student');
-        } finally {
-            setProcessingId(null);
-        }
-    };
-
-    const openRejectModal = (student: Student) => {
-        setSelectedForReject(student);
-        setShowRejectModal(true);
-    };
-
-    // ── Bulk helpers ───────────────────────────────────────────────────────────
-
-    const toggleSelect = (id: number) => {
-        setSelectedIds(prev => {
-            const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
-            return next;
-        });
-    };
-
-    const toggleSelectAll = () => {
-        if (selectedIds.size === students.length) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(students.map(s => s.id)));
-        }
-    };
-
-    const handleBulkApprove = async () => {
-        if (selectedIds.size === 0) return;
-        setIsBulkApproving(true);
-        const ids = Array.from(selectedIds);
-        let successCount = 0;
-        let failCount = 0;
-        await Promise.all(
-            ids.map(id =>
-                api.put(`/students/${id}/status`, { status: 'APPROVED' })
-                    .then(() => { successCount++; })
-                    .catch(() => { failCount++; })
-            )
-        );
-        setIsBulkApproving(false);
-        setSelectedIds(new Set());
-        if (successCount > 0) toast.success(`${successCount} student${successCount > 1 ? 's' : ''} approved`);
-        if (failCount > 0) toast.error(`${failCount} approval${failCount > 1 ? 's' : ''} failed`);
-        fetchStudents();
-    };
-
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
@@ -225,44 +143,14 @@ export default function StudentApprovalsPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Student Approvals</h1>
-                    <p className="text-gray-500 mt-1">Review and approve pending student registrations</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Registered Students</h1>
+                    <p className="text-gray-500 mt-1">Students who have completed payment and are active members</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    {/* Bulk approve bar — appears when any rows are selected */}
-                    {selectedIds.size > 0 && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="flex items-center gap-2 px-3 py-2 bg-green-100 border border-green-500/40 rounded-lg"
-                        >
-                            <span className="text-green-600 text-sm font-medium">
-                                {selectedIds.size} selected
-                            </span>
-                            <button
-                                onClick={handleBulkApprove}
-                                disabled={isBulkApproving}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg disabled:opacity-60 transition-colors"
-                            >
-                                {isBulkApproving
-                                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                                    : <CheckCircle className="w-4 h-4" />}
-                                Approve All
-                            </button>
-                            <button
-                                onClick={() => setSelectedIds(new Set())}
-                                className="p-1 text-gray-500 hover:text-gray-900 rounded"
-                            >
-                                <XCircle className="w-4 h-4" />
-                            </button>
-                        </motion.div>
-                    )}
-                    {stats && (
-                        <div className="px-4 py-2 bg-amber-100 text-amber-600 rounded-lg flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            <span className="font-medium">{stats.pending} Pending</span>
-                        </div>
-                    )}
+                    <div className="px-4 py-2 bg-green-100 text-green-700 rounded-lg flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="font-medium">{meta.total} Registered</span>
+                    </div>
                     <button
                         onClick={fetchStudents}
                         className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-900 rounded-lg transition-colors"
@@ -300,35 +188,27 @@ export default function StudentApprovalsPage() {
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-gray-100">
-                                <th className="px-4 py-3 w-10">
-                                    <input
-                                        type="checkbox"
-                                        checked={students.length > 0 && selectedIds.size === students.length}
-                                        ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < students.length; }}
-                                        onChange={toggleSelectAll}
-                                        className="w-4 h-4 rounded border-gray-200 bg-gray-100 text-green-500 focus:ring-green-500/50"
-                                    />
-                                </th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Student</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Club</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Location</th>
-                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Submitted</th>
+                                <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Registered</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-16 text-center">
+                                    <td colSpan={5} className="px-4 py-16 text-center">
                                         <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
-                                        <p className="text-gray-500 mt-2 text-sm">Loading pending students…</p>
+                                        <p className="text-gray-500 mt-2 text-sm">Loading registered students…</p>
                                     </td>
                                 </tr>
                             ) : students.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-16 text-center">
-                                        <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-600 opacity-50" />
-                                        <p className="text-gray-500">No pending student approvals</p>
+                                    <td colSpan={5} className="px-4 py-16 text-center">
+                                        <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                        <p className="text-gray-500">No registered students yet</p>
+                                        <p className="text-xs text-gray-400 mt-1">Students will appear here after they complete payment.</p>
                                     </td>
                                 </tr>
                             ) : (
@@ -338,18 +218,8 @@ export default function StudentApprovalsPage() {
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.04 }}
-                                        className={`border-b border-gray-200/30 hover:bg-gray-50/60 ${
-                                            selectedIds.has(student.id) ? 'bg-green-500/5' : ''
-                                        }`}
+                                        className="border-b border-gray-200/30 hover:bg-gray-50/60"
                                     >
-                                        <td className="px-4 py-3">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.has(student.id)}
-                                                onChange={() => toggleSelect(student.id)}
-                                                className="w-4 h-4 rounded border-gray-200 bg-gray-100 text-green-500 focus:ring-green-500/50"
-                                            />
-                                        </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${student.gender === 'MALE' ? 'bg-cyan-100' : 'bg-teal-100'}`}>
@@ -379,23 +249,6 @@ export default function StudentApprovalsPage() {
                                                     title="View Details"
                                                 >
                                                     <Eye className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleApprove(student)}
-                                                    disabled={processingId === student.id}
-                                                    className="p-2 hover:bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg text-green-600 hover:text-green-300 disabled:opacity-50 transition-colors"
-                                                    title="Approve"
-                                                >
-                                                    {processingId === student.id
-                                                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                                                        : <CheckCircle className="w-4 h-4" />}
-                                                </button>
-                                                <button
-                                                    onClick={() => openRejectModal(student)}
-                                                    className="p-2 hover:bg-gradient-to-br from-red-500 to-teal-600 rounded-lg text-red-600 hover:text-red-300 transition-colors"
-                                                    title="Reject"
-                                                >
-                                                    <XCircle className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>
@@ -435,7 +288,7 @@ export default function StudentApprovalsPage() {
                 )}
             </div>
 
-            {/* ── Detail Modal ── */}
+            {/* ── Detail Modal (read-only) ── */}
             <AnimatePresence>
                 {viewingStudent && (
                     <motion.div
@@ -469,7 +322,7 @@ export default function StudentApprovalsPage() {
                             </div>
 
                             {/* Modal Body */}
-                            <div className="space-y-6">
+                            <div className="p-6 space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
                                     {[
                                         { label: "Father's Name", value: viewingStudent.father_name || '—' },
@@ -489,85 +342,6 @@ export default function StudentApprovalsPage() {
                                         <p className="font-medium text-gray-900">{viewingStudent.club_name}</p>
                                         <p className="text-sm text-gray-500">{viewingStudent.district_name}, {viewingStudent.state_name}</p>
                                     </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex gap-3 pt-4 border-t border-gray-200">
-                                    <button
-                                        onClick={() => handleApprove(viewingStudent)}
-                                        disabled={processingId === viewingStudent.id}
-                                        className="flex-1 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
-                                    >
-                                        {processingId === viewingStudent.id
-                                            ? <Loader2 className="w-5 h-5 animate-spin" />
-                                            : <><Check className="w-5 h-5" /> Approve</>}
-                                    </button>
-                                    <button
-                                        onClick={() => openRejectModal(viewingStudent)}
-                                        className="flex-1 py-3 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-medium flex items-center justify-center gap-2 transition-colors"
-                                    >
-                                        <X className="w-5 h-5" /> Reject
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* ── Reject Reason Modal ── */}
-            <AnimatePresence>
-                {showRejectModal && selectedForReject && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-                        onClick={() => setShowRejectModal(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white rounded-2xl max-w-md w-full"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="p-6">
-                                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <AlertTriangle className="w-6 h-6 text-gray-900" />
-                                </div>
-                                <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Reject Registration</h3>
-                                <p className="text-gray-500 text-center text-sm mb-6">
-                                    Rejecting <span className="text-gray-900 font-medium">{selectedForReject.name}</span>'s application. This action will notify the applicant.
-                                </p>
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                                        Reason for rejection <span className="text-gray-600">(optional)</span>
-                                    </label>
-                                    <textarea
-                                        value={rejectReason}
-                                        onChange={e => setRejectReason(e.target.value)}
-                                        placeholder="Enter reason…"
-                                        rows={3}
-                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 resize-none"
-                                    />
-                                </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => { setShowRejectModal(false); setRejectReason(''); }}
-                                        className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleReject}
-                                        disabled={processingId === selectedForReject.id}
-                                        className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
-                                    >
-                                        {processingId === selectedForReject.id
-                                            ? <Loader2 className="w-5 h-5 animate-spin" />
-                                            : 'Confirm Reject'}
-                                    </button>
                                 </div>
                             </div>
                         </motion.div>
