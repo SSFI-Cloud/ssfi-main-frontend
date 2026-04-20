@@ -104,7 +104,14 @@ export const useRegisterStudent = () => {
       );
       return response.data.data;
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to initiate registration';
+      // Backend wraps Zod issues under response.data.errors = [{ field, message }, ...]
+      const payload = err.response?.data;
+      const fieldErrors: Array<{ field: string; message: string }> = payload?.errors || [];
+      // eslint-disable-next-line no-console
+      console.warn('[student-initiate] backend validation errors:', fieldErrors, 'full payload:', payload);
+      const first = fieldErrors[0];
+      const detailed = first ? `${first.field}: ${first.message}` : null;
+      const errorMessage = detailed || payload?.message || 'Failed to initiate registration';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
