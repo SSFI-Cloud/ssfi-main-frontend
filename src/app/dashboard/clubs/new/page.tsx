@@ -123,7 +123,7 @@ export default function NewClubPage() {
             };
 
             if (paymentMode === 'offline') {
-                await api.post('/clubs', payload);
+                await api.post('/affiliations/club/admin-create', payload);
                 setSuccess(true);
                 toast.success('Club created successfully!');
                 setTimeout(() => router.push('/dashboard/clubs'), 2000);

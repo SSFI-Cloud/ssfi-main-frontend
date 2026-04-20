@@ -86,6 +86,17 @@ export function useKYC() {
         const response = await api.get(`/kyc/digilocker/status/${cId}`);
         const data = response.data?.data;
 
+        // Diagnostic: log raw backend response so we can see SurePass shape in the browser
+        console.debug('[KYC poll]', {
+          completed: data?.completed,
+          failed: data?.failed,
+          status: data?.status,
+          aadhaarLinked: data?.aadhaarLinked,
+          hasVerifiedData: !!data?.data?.verified,
+          errorCode: data?.errorCode,
+          errorDescription: data?.errorDescription,
+        });
+
         if (data?.completed && data?.data?.verified) {
           stopPolling();
           setResult(data.data);
@@ -95,7 +106,25 @@ export function useKYC() {
 
         if (data?.failed) {
           stopPolling();
-          setError('Digilocker verification failed. Please try again.');
+          const backendMsg = data?.errorDescription || data?.errorCode;
+          setError(
+            backendMsg
+              ? `Digilocker verification failed: ${backendMsg}`
+              : 'Digilocker verification failed. Please try again.'
+          );
+          setStep('error');
+          return;
+        }
+
+        // Edge case: SurePass says completed but our backend couldn't extract
+        // Aadhaar data (e.g. Digilocker account not linked to Aadhaar). Stop
+        // polling and surface a clear message instead of timing out.
+        if (data?.completed && !data?.data?.verified) {
+          stopPolling();
+          const reason = data?.aadhaarLinked === false
+            ? 'Your Digilocker account is not linked to Aadhaar. Please link Aadhaar in Digilocker and retry.'
+            : (data?.errorDescription || 'Verification completed but Aadhaar data could not be retrieved. Please try again.');
+          setError(reason);
           setStep('error');
           return;
         }
