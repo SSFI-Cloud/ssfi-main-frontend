@@ -16,6 +16,8 @@ import { registrationSchema } from '@/lib/validations/student';
 import { useRenewal, type MemberLookupResult } from '@/lib/hooks/useAffiliationLookup';
 import { api } from '@/lib/api/client';
 import AffiliationLookupStep from './affiliation/AffiliationLookupStep';
+import AadhaarKYCVerification from './shared/AadhaarKYCVerification';
+import type { KycResult } from '@/lib/hooks/useKYC';
 import type { StudentRegistrationData } from '@/types/student';
 
 import PersonalInfoStep from './steps/PersonalInfoStep';
@@ -40,6 +42,7 @@ export default function StudentRegistrationForm() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('choose');
   const [renewMember, setRenewMember] = useState<MemberLookupResult | null>(null);
+  const [renewKycResult, setRenewKycResult] = useState<KycResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -202,11 +205,12 @@ export default function StudentRegistrationForm() {
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Renew Student Membership</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">Confirm details and proceed to payment</p>
+                  <p className="text-sm text-gray-500 mt-0.5">Verify identity and proceed to payment</p>
                 </div>
-                <button onClick={() => { setMode('choose'); setRenewMember(null); }} className="text-sm text-gray-400 hover:text-gray-600">Change</button>
+                <button onClick={() => { setMode('choose'); setRenewMember(null); setRenewKycResult(null); }} className="text-sm text-gray-400 hover:text-gray-600">Change</button>
               </div>
               <div className="p-6 space-y-4">
+                {/* Member details */}
                 <div className="p-4 bg-green-50 border border-green-100 rounded-xl space-y-2">
                   <div className="flex justify-between text-sm"><span className="text-gray-500">Name</span><span className="font-medium text-gray-900">{renewMember.name}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-gray-500">UID</span><span className="font-mono text-gray-900">{renewMember.uid}</span></div>
@@ -214,13 +218,29 @@ export default function StudentRegistrationForm() {
                   {renewMember.stateName && <div className="flex justify-between text-sm"><span className="text-gray-500">State</span><span className="text-gray-900">{renewMember.stateName}</span></div>}
                   {renewMember.expiryDate && <div className="flex justify-between text-sm"><span className="text-gray-500">Current Expiry</span><span className="text-gray-900">{new Date(renewMember.expiryDate).toLocaleDateString('en-IN')}</span></div>}
                 </div>
+
+                {/* KYC Verification — required before payment */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Step 1 — Verify Identity</p>
+                  <AadhaarKYCVerification
+                    onVerified={(result) => setRenewKycResult(result)}
+                    showProfilePhotoChoice={false}
+                    colorScheme="emerald"
+                    initialResult={renewKycResult}
+                  />
+                </div>
+
+                {/* Extension notice */}
                 <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
                   <p className="text-sm text-amber-700">Renewing will extend your membership by 1 year from the current expiry date.</p>
                 </div>
-                <button type="button" onClick={handleRenew} disabled={renewLoading}
-                  className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-60 text-white rounded-xl font-semibold flex items-center justify-center gap-2">
+
+                {/* Payment button — only enabled after KYC */}
+                <button type="button" onClick={handleRenew}
+                  disabled={renewLoading || !renewKycResult?.verified}
+                  className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
                   {renewLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-                  Proceed to Payment
+                  {renewKycResult?.verified ? 'Proceed to Payment' : 'Complete Verification to Continue'}
                 </button>
               </div>
             </motion.div>
