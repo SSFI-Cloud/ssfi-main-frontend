@@ -13,7 +13,6 @@ import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 const BLOOD_GROUPS = ['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','O_POSITIVE','O_NEGATIVE','AB_POSITIVE','AB_NEGATIVE'];
-const SKATE_CATEGORIES = ['SPEED_QUAD','SPEED_INLINE','RECREATIONAL','BEGINNER'];
 const ACADEMIC_BOARDS = ['STATE','CBSE','ICSE','OTHER'];
 const NOMINEE_RELATIONS = ['FATHER','MOTHER','GUARDIAN','OTHER'];
 
@@ -23,10 +22,13 @@ interface FormData {
     firstName: string; lastName: string; dateOfBirth: string; gender: string;
     bloodGroup: string; email: string; phone: string;
     fatherName: string; motherName: string; schoolName: string;
-    academicBoard: string; className: string;
-    nomineeName: string; nomineeAge: number; nomineeRelation: string; nomineePhone: string;
-    coachName: string; categoryId: string;
-    address: string; city: string; state: string; district: string; pincode: string;
+    academicBoard: string;
+    nomineeName: string; nomineeAge: number; nomineeRelation: string;
+    coachName: string;
+    addressLine1: string; city: string; pincode: string;
+    // Readonly display of location derived from the club. Not editable here —
+    // a change of club belongs in the renewal / migration flow.
+    stateName: string; districtName: string; clubName: string;
 }
 
 export default function EditStudentPage() {
@@ -45,10 +47,11 @@ export default function EditStudentPage() {
         firstName: '', lastName: '', dateOfBirth: '', gender: 'MALE',
         bloodGroup: '', email: '', phone: '',
         fatherName: '', motherName: '', schoolName: '',
-        academicBoard: 'STATE', className: '',
-        nomineeName: '', nomineeAge: 18, nomineeRelation: 'FATHER', nomineePhone: '',
-        coachName: '', categoryId: '',
-        address: '', city: '', state: '', district: '', pincode: '',
+        academicBoard: 'STATE',
+        nomineeName: '', nomineeAge: 18, nomineeRelation: 'FATHER',
+        coachName: '',
+        addressLine1: '', city: '', pincode: '',
+        stateName: '', districtName: '', clubName: '',
     });
 
     useEffect(() => {
@@ -57,33 +60,43 @@ export default function EditStudentPage() {
             setIsLoading(true);
             try {
                 const res = await api.get(`/students/${id}`);
+                // GET /students/:id returns the raw Prisma student — camelCase
+                // fields, plus nested user/state/district/club objects. The
+                // older snake_case paths (s.first_name, s.dob, s.state_name …)
+                // just don't exist on this shape, which is why the edit form
+                // was rendering empty and showed [object Object] for state.
                 const s = res.data?.data?.student || res.data?.data || res.data;
-                setStudentName(`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.name || '');
-                setSsfiId(s.ssfi_id || s.uid || '');
+
+                // name → firstName/lastName split (Student.name is a single field)
+                const fullName = (s.name || '').trim();
+                const firstSpace = fullName.indexOf(' ');
+                const firstName = firstSpace === -1 ? fullName : fullName.slice(0, firstSpace);
+                const lastName = firstSpace === -1 ? '' : fullName.slice(firstSpace + 1);
+
+                setStudentName(fullName);
+                setSsfiId(s.membershipId || s.user?.uid || '');
                 setForm({
-                    firstName: s.first_name || s.name?.split(' ')[0] || '',
-                    lastName: s.last_name || s.name?.split(' ').slice(1).join(' ') || '',
-                    dateOfBirth: s.dob ? s.dob.split('T')[0] : '',
+                    firstName,
+                    lastName,
+                    dateOfBirth: s.dateOfBirth ? String(s.dateOfBirth).split('T')[0] : '',
                     gender: s.gender || 'MALE',
-                    bloodGroup: s.blood_group || '',
-                    email: s.email || '',
-                    phone: s.mobile || s.phone || '',
-                    fatherName: s.father_name || '',
-                    motherName: s.mother_name || '',
-                    schoolName: s.school_name || '',
-                    academicBoard: s.academic_board || 'STATE',
-                    className: s.class_name || '',
-                    nomineeName: s.nominee_name || '',
-                    nomineeAge: s.nominee_age || 18,
-                    nomineeRelation: s.nominee_relation || 'FATHER',
-                    nomineePhone: s.nominee_phone || '',
-                    coachName: s.coach_name || '',
-                    categoryId: String(s.category_id || s.skate_category || ''),
-                    address: s.address || '',
+                    bloodGroup: s.bloodGroup || '',
+                    email: s.user?.email || '',
+                    phone: s.user?.phone || '',
+                    fatherName: s.fatherName || '',
+                    motherName: s.motherName || '',
+                    schoolName: s.schoolName || '',
+                    academicBoard: s.academicBoard || 'STATE',
+                    nomineeName: s.nomineeName || '',
+                    nomineeAge: s.nomineeAge || 18,
+                    nomineeRelation: s.nomineeRelation || 'FATHER',
+                    coachName: s.coachName || '',
+                    addressLine1: s.addressLine1 || '',
                     city: s.city || '',
-                    state: s.state_name || s.state || '',
-                    district: s.district_name || s.district || '',
                     pincode: s.pincode || '',
+                    stateName: s.state?.name || '',
+                    districtName: s.district?.name || '',
+                    clubName: s.club?.name || '',
                 });
             } catch (err: any) {
                 setError(err.response?.data?.message || 'Failed to load student data');
@@ -102,7 +115,29 @@ export default function EditStudentPage() {
         setIsSaving(true);
         setError(null);
         try {
-            await api.put(`/students/${id}`, form);
+            // Only send fields that exist on Student / User. stateName,
+            // districtName, clubName are readonly display-only here and
+            // aren't part of the update payload.
+            const payload = {
+                firstName: form.firstName,
+                lastName: form.lastName,
+                dateOfBirth: form.dateOfBirth,
+                gender: form.gender,
+                bloodGroup: form.bloodGroup || null,
+                email: form.email || null,
+                fatherName: form.fatherName,
+                motherName: form.motherName || null,
+                schoolName: form.schoolName,
+                academicBoard: form.academicBoard,
+                nomineeName: form.nomineeName,
+                nomineeAge: form.nomineeAge,
+                nomineeRelation: form.nomineeRelation,
+                coachName: form.coachName,
+                addressLine1: form.addressLine1,
+                city: form.city,
+                pincode: form.pincode,
+            };
+            await api.put(`/students/${id}`, payload);
             setSuccess(true);
             setTimeout(() => router.push('/dashboard/students'), 1500);
         } catch (err: any) {
@@ -206,8 +241,14 @@ export default function EditStudentPage() {
                             </select>
                         </div>
                         <div>
-                            <label className={labelCls}>Phone *</label>
-                            <input className={inputCls} value={form.phone} onChange={e => set('phone', e.target.value)} required placeholder="10-digit mobile" />
+                            <label className={labelCls}>Phone</label>
+                            <input
+                                className={`${inputCls} bg-gray-50 cursor-not-allowed`}
+                                value={form.phone}
+                                readOnly
+                                title="Phone is the login seed for student accounts and can't be edited here"
+                                placeholder="—"
+                            />
                         </div>
                         <div className="sm:col-span-2">
                             <label className={labelCls}>Email</label>
@@ -237,10 +278,6 @@ export default function EditStudentPage() {
                                 {ACADEMIC_BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
                         </div>
-                        <div>
-                            <label className={labelCls}>Class / Grade</label>
-                            <input className={inputCls} value={form.className} onChange={e => set('className', e.target.value)} placeholder="e.g. 8th" />
-                        </div>
                     </div>
                 </Section>
 
@@ -261,14 +298,14 @@ export default function EditStudentPage() {
                             <label className={labelCls}>Nominee Age</label>
                             <input type="number" className={inputCls} value={form.nomineeAge} onChange={e => set('nomineeAge', Number(e.target.value))} min={1} max={120} />
                         </div>
-                        <div>
-                            <label className={labelCls}>Nominee Phone</label>
-                            <input className={inputCls} value={form.nomineePhone} onChange={e => set('nomineePhone', e.target.value)} placeholder="10-digit number" />
-                        </div>
                     </div>
                 </Section>
 
-                {/* Skating */}
+                {/* Skating. Skate Category dropdown was removed here because
+                    it's stored on a separate CategoryType relation and a
+                    meaningful edit surface needs its own cascade — we'll
+                    add that once it stops being a footgun. Coach name is
+                    the only editable field in this section today. */}
                 <Section title="Skating Details" icon={Shield} color="purple">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -276,13 +313,8 @@ export default function EditStudentPage() {
                             <input className={inputCls} value={form.coachName} onChange={e => set('coachName', e.target.value)} placeholder="Coach's name" />
                         </div>
                         <div>
-                            <label className={labelCls}>Skate Category</label>
-                            <select className={selectCls} value={form.categoryId} onChange={e => set('categoryId', e.target.value)}>
-                                <option value="">Select category</option>
-                                {SKATE_CATEGORIES.map(c => (
-                                    <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>
-                                ))}
-                            </select>
+                            <label className={labelCls}>Club</label>
+                            <input className={`${inputCls} bg-gray-50 cursor-not-allowed`} value={form.clubName} readOnly placeholder="—" title="Club can only be changed during renewal" />
                         </div>
                     </div>
                 </Section>
@@ -292,7 +324,7 @@ export default function EditStudentPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="sm:col-span-2">
                             <label className={labelCls}>Street Address</label>
-                            <textarea className={`${inputCls} resize-none`} rows={2} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Door no, street, locality" />
+                            <textarea className={`${inputCls} resize-none`} rows={2} value={form.addressLine1} onChange={e => set('addressLine1', e.target.value)} placeholder="Door no, street, locality" />
                         </div>
                         <div>
                             <label className={labelCls}>City</label>
@@ -304,11 +336,11 @@ export default function EditStudentPage() {
                         </div>
                         <div>
                             <label className={labelCls}>District</label>
-                            <input className={inputCls} value={form.district} readOnly placeholder="Auto-filled from club" />
+                            <input className={`${inputCls} bg-gray-50 cursor-not-allowed`} value={form.districtName} readOnly placeholder="—" title="Derived from club; edit the club to change" />
                         </div>
                         <div>
                             <label className={labelCls}>State</label>
-                            <input className={inputCls} value={form.state} readOnly placeholder="Auto-filled from club" />
+                            <input className={`${inputCls} bg-gray-50 cursor-not-allowed`} value={form.stateName} readOnly placeholder="—" title="Derived from club; edit the club to change" />
                         </div>
                     </div>
                 </Section>
