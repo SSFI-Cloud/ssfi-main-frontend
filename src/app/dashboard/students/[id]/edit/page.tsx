@@ -26,6 +26,7 @@ interface FormData {
     academicBoard: string;
     nomineeName: string; nomineeAge: number; nomineeRelation: string;
     coachName: string;
+    skateCategory: string;
     addressLine1: string; city: string; pincode: string;
     // Editable location. We keep these as ids so the cascading selects can
     // round-trip cleanly; the backend re-derives state+district from the
@@ -52,6 +53,7 @@ export default function EditStudentPage() {
         academicBoard: 'STATE',
         nomineeName: '', nomineeAge: 18, nomineeRelation: 'FATHER',
         coachName: '',
+        skateCategory: '',
         addressLine1: '', city: '', pincode: '',
         stateId: '', districtId: '', clubId: '',
     });
@@ -100,6 +102,7 @@ export default function EditStudentPage() {
                     nomineeAge: s.nomineeAge || 18,
                     nomineeRelation: s.nomineeRelation || 'FATHER',
                     coachName: s.coachName || '',
+                    skateCategory: s.categoryType?.cat_name || '',
                     addressLine1: s.addressLine1 || '',
                     city: s.city || '',
                     pincode: s.pincode || '',
@@ -168,6 +171,9 @@ export default function EditStudentPage() {
                 nomineeAge: form.nomineeAge,
                 nomineeRelation: form.nomineeRelation,
                 coachName: form.coachName,
+                // Backend resolves the label to CategoryType.id (creating
+                // the row if missing). Empty string clears the link.
+                skateCategory: form.skateCategory,
                 addressLine1: form.addressLine1,
                 city: form.city,
                 pincode: form.pincode,
@@ -350,6 +356,24 @@ export default function EditStudentPage() {
                             <input className={inputCls} value={form.coachName} onChange={e => set('coachName', e.target.value)} placeholder="Coach's name" />
                         </div>
                         <div>
+                            <label className={labelCls}>Skate Category</label>
+                            <select className={selectCls} value={form.skateCategory} onChange={e => set('skateCategory', e.target.value)}>
+                                <option value="">Select category</option>
+                                <option value="Speed Quad">Speed Quad</option>
+                                <option value="Speed Inline">Speed Inline</option>
+                                <option value="Recreational">Recreational</option>
+                                <option value="Beginner">Beginner</option>
+                                {/* Preserve any legacy label already on the
+                                    record (Artistic, Adjustable/Tenacity …)
+                                    so editing doesn't silently erase it.
+                                    Only the four above are offered as new
+                                    picks. */}
+                                {form.skateCategory && !['Speed Quad','Speed Inline','Recreational','Beginner'].includes(form.skateCategory) && (
+                                    <option value={form.skateCategory}>{form.skateCategory} (legacy)</option>
+                                )}
+                            </select>
+                        </div>
+                        <div className="sm:col-span-2">
                             <label className={labelCls}>Club</label>
                             <select
                                 className={selectCls}

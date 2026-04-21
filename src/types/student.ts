@@ -90,6 +90,10 @@ export interface StudentRegistrationData {
     coachName?: string;
     coachPhone?: string;
     coachEmail?: string;
+    // Human-readable skate-category label (e.g. "Speed Quad"). Backend
+    // resolves it to Student.categoryTypeId at write time. Optional so
+    // existing code paths don't have to set it.
+    skateCategory?: string;
 
     // Location & Address
     stateId: string;

@@ -23,6 +23,7 @@ const defaultFormData: Partial<StudentRegistrationData> = {
   coachName: '',
   coachPhone: '',
   coachEmail: '',
+  skateCategory: '',
   addressLine1: '',
   addressLine2: '',
   city: '',

@@ -540,9 +540,10 @@ export default function StudentRegistrationForm() {
                               </div>
                             </div>
 
-                            {/* Coach */}
+                            {/* Coach + skate category. Backend resolves the
+                                label to CategoryType.id on save. */}
                             <div>
-                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Coach</p>
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Coach & Discipline</p>
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <label className="text-xs text-gray-500 mb-1 block">Coach Name</label>
@@ -553,6 +554,20 @@ export default function StudentRegistrationForm() {
                                   <label className="text-xs text-gray-500 mb-1 block">Coach Phone</label>
                                   <input value={profileEdits.coachPhone || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, coachPhone: e.target.value }))}
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div className="col-span-2">
+                                  <label className="text-xs text-gray-500 mb-1 block">Skate Category</label>
+                                  <select
+                                    value={profileEdits.skateCategory || ''}
+                                    onChange={e => setProfileEdits((p: any) => ({ ...p, skateCategory: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                  >
+                                    <option value="">Select skate category</option>
+                                    <option value="Speed Quad">Speed Quad</option>
+                                    <option value="Speed Inline">Speed Inline</option>
+                                    <option value="Recreational">Recreational</option>
+                                    <option value="Beginner">Beginner</option>
+                                  </select>
                                 </div>
                               </div>
                             </div>

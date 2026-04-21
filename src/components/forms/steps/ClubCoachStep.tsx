@@ -8,6 +8,16 @@ import { useRegistrationStore } from '@/lib/store/registrationStore';
 import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 import { Building2, GraduationCap } from 'lucide-react';
 
+// Canonical skate-category list offered during registration. Backend
+// will resolve the label to CategoryType.id (creating the row if it
+// doesn't exist yet) so this is the single source of truth.
+export const SKATE_CATEGORY_OPTIONS = [
+  'Speed Quad',
+  'Speed Inline',
+  'Recreational',
+  'Beginner',
+] as const;
+
 const schema = z.object({
   stateId: z.string().min(1, 'State is required'),
   districtId: z.string().min(1, 'District is required'),
@@ -15,6 +25,7 @@ const schema = z.object({
   clubMode: z.enum(['club', 'school']).optional(),
   coachName: z.string().optional(),
   coachPhone: z.string().optional(),
+  skateCategory: z.string().min(1, 'Please pick a skate category'),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -40,6 +51,7 @@ export default function ClubCoachStep({ onComplete }: { onComplete: (data: FormD
       clubMode: (formData as any).clubMode || 'club',
       coachName: formData.coachName || '',
       coachPhone: formData.coachPhone || '',
+      skateCategory: (formData as any).skateCategory || '',
     },
   });
 
@@ -167,6 +179,20 @@ export default function ClubCoachStep({ onComplete }: { onComplete: (data: FormD
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Coach Phone <span className="text-gray-400">(Optional)</span></label>
           <input {...register('coachPhone')} type="tel" maxLength={10} placeholder="10-digit number" className={inputCls()} />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Skate Category <span className="text-red-400">*</span>
+          </label>
+          <select {...register('skateCategory')} className={inputCls(!!errors.skateCategory)}>
+            <option value="">Select skate category</option>
+            {SKATE_CATEGORY_OPTIONS.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          {errors.skateCategory && <p className="mt-1 text-xs text-red-500">{errors.skateCategory.message}</p>}
+          <p className="mt-1 text-xs text-gray-500">Which discipline do you intend to participate in?</p>
         </div>
       </div>
     </form>

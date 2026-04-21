@@ -92,6 +92,7 @@ export default function StudentRegistrationWizard() {
         clubId: '',
         coachName: '',
         coachPhone: '',
+        skateCategory: '',
         // Step 5: Address
         addressLine1: '',
         addressLine2: '',
@@ -232,6 +233,7 @@ export default function StudentRegistrationWizard() {
         clubId: Number(formData.clubId),
         coachName: formData.coachName.trim() || undefined,
         coachPhone: formData.coachPhone.trim() || undefined,
+        skateCategory: formData.skateCategory || undefined,
         address: formData.addressLine1.trim(),
         addressLine1: formData.addressLine1.trim(),
         addressLine2: formData.addressLine2.trim() || undefined,
@@ -598,6 +600,18 @@ export default function StudentRegistrationWizard() {
                                                 <input type="tel" value={formData.coachPhone}
                                                     onChange={e => updateField('coachPhone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                                                     placeholder="Coach's mobile number" className={inputClass('coachPhone')} />
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <label className={labelClass}>Skate Category *</label>
+                                                <select value={formData.skateCategory}
+                                                    onChange={e => updateField('skateCategory', e.target.value)}
+                                                    className={inputClass('skateCategory')}>
+                                                    <option value="">Select skate category</option>
+                                                    <option value="Speed Quad">Speed Quad</option>
+                                                    <option value="Speed Inline">Speed Inline</option>
+                                                    <option value="Recreational">Recreational</option>
+                                                    <option value="Beginner">Beginner</option>
+                                                </select>
                                             </div>
                                         </div>
                                     </div>
