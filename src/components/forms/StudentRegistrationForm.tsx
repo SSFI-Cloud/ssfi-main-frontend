@@ -176,12 +176,29 @@ export default function StudentRegistrationForm() {
     setIsLoadingProfile(true);
     setRenewProfile(null);
     setProfileSaved(false);
-    setShowProfileEdit(false);
+    // Keep the edit panel expanded so the renewing student sees every
+    // editable field (state / district / club / address / coach / nominee /
+    // email) before being offered Pay. Earlier this was `false`, which
+    // silently collapsed the form after lookup — users hit Pay without
+    // touching any field and legacy districtId stayed NULL.
+    setShowProfileEdit(true);
     try {
       const res = await api.get('/affiliations/renew/student-profile', { params: { uid: member.uid } });
       const profile = res.data?.data;
+      // eslint-disable-next-line no-console
+      console.debug('[renewal] profile fetched', {
+        uid: member.uid,
+        fields: profile ? Object.keys(profile).length : 0,
+        addressLine1: profile?.addressLine1,
+        city: profile?.city,
+        stateId: profile?.stateId,
+        districtId: profile?.districtId,
+      });
       setRenewProfile(profile);
-      setProfileEdits({ ...profile });
+      // Pre-populate the edit form with every value returned by the
+      // backend. Spread directly so fields like stateId / districtId /
+      // clubId are usable by the cascading useEffects.
+      setProfileEdits({ ...(profile || {}) });
       // If KYC was already done before, skip re-verification
       if (profile?.kycVerified) {
         setRenewKycResult({
