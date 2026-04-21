@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 
 const BLOOD_GROUPS = ['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','O_POSITIVE','O_NEGATIVE','AB_POSITIVE','AB_NEGATIVE'];
 const ACADEMIC_BOARDS = ['STATE','CBSE','ICSE','OTHER'];
@@ -26,9 +27,10 @@ interface FormData {
     nomineeName: string; nomineeAge: number; nomineeRelation: string;
     coachName: string;
     addressLine1: string; city: string; pincode: string;
-    // Readonly display of location derived from the club. Not editable here —
-    // a change of club belongs in the renewal / migration flow.
-    stateName: string; districtName: string; clubName: string;
+    // Editable location. We keep these as ids so the cascading selects can
+    // round-trip cleanly; the backend re-derives state+district from the
+    // chosen club to keep the three in lockstep.
+    stateId: string; districtId: string; clubId: string;
 }
 
 export default function EditStudentPage() {
@@ -51,8 +53,15 @@ export default function EditStudentPage() {
         nomineeName: '', nomineeAge: 18, nomineeRelation: 'FATHER',
         coachName: '',
         addressLine1: '', city: '', pincode: '',
-        stateName: '', districtName: '', clubName: '',
+        stateId: '', districtId: '', clubId: '',
     });
+
+    // Cascading location pickers. We load states once on mount, then fetch
+    // districts when state changes and clubs when district changes — exact
+    // same pattern used on the Students list filter bar.
+    const { fetchStates, data: stateList } = useStates();
+    const { fetchDistricts, data: districtList, clearDistricts } = useDistricts();
+    const { fetchClubs, data: clubList, clearClubs } = useClubs();
 
     useEffect(() => {
         if (!token || !id) return;
@@ -94,10 +103,19 @@ export default function EditStudentPage() {
                     addressLine1: s.addressLine1 || '',
                     city: s.city || '',
                     pincode: s.pincode || '',
-                    stateName: s.state?.name || '',
-                    districtName: s.district?.name || '',
-                    clubName: s.club?.name || '',
+                    stateId: s.stateId ? String(s.stateId) : '',
+                    districtId: s.districtId ? String(s.districtId) : '',
+                    clubId: s.clubId ? String(s.clubId) : '',
                 });
+                // Prime the cascading lists so the current district/club
+                // options are visible without waiting for the user to
+                // click through the state picker.
+                if (s.stateId) {
+                    fetchDistricts(String(s.stateId));
+                }
+                if (s.districtId) {
+                    fetchClubs(String(s.districtId));
+                }
             } catch (err: any) {
                 setError(err.response?.data?.message || 'Failed to load student data');
             } finally {
@@ -105,7 +123,24 @@ export default function EditStudentPage() {
             }
         };
         fetchStudent();
-    }, [token, id]);
+    }, [token, id, fetchDistricts, fetchClubs]);
+
+    // Load the state list once on mount.
+    useEffect(() => { fetchStates(); }, [fetchStates]);
+
+    // When the user picks a new state, clear the current district/club and
+    // fetch the new district list. Same for district → clubs.
+    const handleStateChange = (newStateId: string) => {
+        setForm(prev => ({ ...prev, stateId: newStateId, districtId: '', clubId: '' }));
+        clearDistricts();
+        clearClubs();
+        if (newStateId) fetchDistricts(newStateId);
+    };
+    const handleDistrictChange = (newDistrictId: string) => {
+        setForm(prev => ({ ...prev, districtId: newDistrictId, clubId: '' }));
+        clearClubs();
+        if (newDistrictId) fetchClubs(newDistrictId);
+    };
 
     const set = (field: keyof FormData, value: string | number) =>
         setForm(prev => ({ ...prev, [field]: value }));
@@ -136,6 +171,13 @@ export default function EditStudentPage() {
                 addressLine1: form.addressLine1,
                 city: form.city,
                 pincode: form.pincode,
+                // Location. We send clubId when it's set — the backend
+                // re-derives state+district from it to keep the three in
+                // lockstep. When the admin hasn't picked a club yet we
+                // fall back to the raw state/district ids.
+                clubId: form.clubId ? Number(form.clubId) : null,
+                stateId: form.stateId ? Number(form.stateId) : null,
+                districtId: form.districtId ? Number(form.districtId) : null,
             };
             await api.put(`/students/${id}`, payload);
             setSuccess(true);
@@ -301,11 +343,6 @@ export default function EditStudentPage() {
                     </div>
                 </Section>
 
-                {/* Skating. Skate Category dropdown was removed here because
-                    it's stored on a separate CategoryType relation and a
-                    meaningful edit surface needs its own cascade — we'll
-                    add that once it stops being a footgun. Coach name is
-                    the only editable field in this section today. */}
                 <Section title="Skating Details" icon={Shield} color="purple">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -314,12 +351,25 @@ export default function EditStudentPage() {
                         </div>
                         <div>
                             <label className={labelCls}>Club</label>
-                            <input className={`${inputCls} bg-gray-50 cursor-not-allowed`} value={form.clubName} readOnly placeholder="—" title="Club can only be changed during renewal" />
+                            <select
+                                className={selectCls}
+                                value={form.clubId}
+                                onChange={e => set('clubId', e.target.value)}
+                                disabled={!form.districtId}
+                            >
+                                <option value="">{form.districtId ? 'Select club' : 'Select district first'}</option>
+                                {clubList.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </Section>
 
-                {/* Address */}
+                {/* Address + location. State → District → Club cascade. The
+                    club ultimately sets state+district server-side, but
+                    keeping independent pickers here gives the admin a
+                    recovery path when a student is mid-move between clubs. */}
                 <Section title="Address" icon={MapPin} color="amber">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="sm:col-span-2">
@@ -335,12 +385,31 @@ export default function EditStudentPage() {
                             <input className={inputCls} value={form.pincode} onChange={e => set('pincode', e.target.value)} placeholder="6-digit pincode" />
                         </div>
                         <div>
-                            <label className={labelCls}>District</label>
-                            <input className={`${inputCls} bg-gray-50 cursor-not-allowed`} value={form.districtName} readOnly placeholder="—" title="Derived from club; edit the club to change" />
+                            <label className={labelCls}>State</label>
+                            <select
+                                className={selectCls}
+                                value={form.stateId}
+                                onChange={e => handleStateChange(e.target.value)}
+                            >
+                                <option value="">Select state</option>
+                                {stateList.map((s: any) => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
-                            <label className={labelCls}>State</label>
-                            <input className={`${inputCls} bg-gray-50 cursor-not-allowed`} value={form.stateName} readOnly placeholder="—" title="Derived from club; edit the club to change" />
+                            <label className={labelCls}>District</label>
+                            <select
+                                className={selectCls}
+                                value={form.districtId}
+                                onChange={e => handleDistrictChange(e.target.value)}
+                                disabled={!form.stateId}
+                            >
+                                <option value="">{form.stateId ? 'Select district' : 'Select state first'}</option>
+                                {districtList.map((d: any) => (
+                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </Section>
