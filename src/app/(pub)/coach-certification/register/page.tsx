@@ -182,7 +182,7 @@ function CoachCertRegisterForm() {
             {errors.programId && <p className={errCls}>{errors.programId}</p>}
             {selectedProgram && (
               <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700">
-                <strong>{selectedProgram.title}</strong> — {new Date(selectedProgram.startDate).toLocaleDateString('en-IN')} to {new Date(selectedProgram.endDate).toLocaleDateString('en-IN')} | Fee: &#8377;{Number(selectedProgram.price).toLocaleString()} | {Math.max(0, selectedProgram.totalSeats - selectedProgram.filledSeats)} seats left
+                <strong>{selectedProgram.title}</strong> — {new Date(selectedProgram.startDate).toLocaleDateString('en-IN')} to {new Date(selectedProgram.endDate).toLocaleDateString('en-IN')} | Fee: &#8377;{Number(selectedProgram.price).toLocaleString()}
               </div>
             )}
           </div>

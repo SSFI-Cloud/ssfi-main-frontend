@@ -268,22 +268,11 @@ export default function CoachCertClient() {
                                 )}
                               </div>
 
-                              {/* Seats progress */}
-                              <div className="mb-5 mt-auto">
-                                <div className="flex justify-between text-xs mb-1.5">
-                                  <span className="text-gray-400">Seats</span>
-                                  <span className="text-gray-600 font-medium">{p.filledSeats}/{p.totalSeats}</span>
-                                </div>
-                                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                                  <div className={`h-full rounded-full bg-gradient-to-r ${lc.gradient} transition-all duration-500`}
-                                    style={{ width: `${Math.min(pct, 100)}%` }} />
-                                </div>
-                                {spotsLeft > 0 && spotsLeft <= 10 && (
-                                  <p className="text-teal-600 text-xs font-medium mt-1.5">
-                                    Only {spotsLeft} spot{spotsLeft > 1 ? 's' : ''} left!
-                                  </p>
-                                )}
-                              </div>
+                              {/* Seats progress — hidden per federation request.
+                                  spotsLeft is still computed above and drives the
+                                  CTA below (closed once full), but no counter,
+                                  bar, or "only N left" copy is shown to the user. */}
+                              <div className="mb-5 mt-auto" />
 
                               {/* CTA */}
                               {!deadlinePassed && spotsLeft > 0 ? (
