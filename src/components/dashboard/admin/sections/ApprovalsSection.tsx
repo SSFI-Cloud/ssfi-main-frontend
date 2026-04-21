@@ -4,7 +4,19 @@ import { PendingApprovalCard } from '../../shared/DashboardComponents';
 import { PendingApprovals } from '@/types/dashboard';
 
 export function ApprovalsSection({ approvals }: { approvals: PendingApprovals | undefined }) {
-  if (!approvals || (approvals.total || 0) === 0) return null;
+  if (!approvals) return null;
+
+  // Students auto-approve on successful payment (verifyStudentPayment flips
+  // approvalStatus → APPROVED), so "pending students" here are really
+  // abandoned registration attempts that never paid, not things awaiting
+  // admin review. Excluding them from the Pending Approvals panel
+  // avoids admins being nagged to click through to a queue they have no
+  // action to take on.
+  const reviewableTotal =
+    (approvals.stateSecretaries || 0) +
+    (approvals.districtSecretaries || 0) +
+    (approvals.clubs || 0);
+  if (reviewableTotal === 0) return null;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
@@ -14,7 +26,7 @@ export function ApprovalsSection({ approvals }: { approvals: PendingApprovals | 
         </div>
         <div>
           <h2 className="text-base font-semibold text-gray-900">Pending Approvals</h2>
-          <p className="text-xs text-gray-600">{approvals.total} item{(approvals.total || 0) !== 1 ? 's' : ''} awaiting review</p>
+          <p className="text-xs text-gray-600">{reviewableTotal} item{reviewableTotal !== 1 ? 's' : ''} awaiting review</p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -27,9 +39,8 @@ export function ApprovalsSection({ approvals }: { approvals: PendingApprovals | 
         {(approvals.clubs || 0) > 0 && (
           <PendingApprovalCard title="Clubs" count={approvals.clubs || 0} icon={Users} href="/dashboard/approvals/clubs" color="pink" delay={0.14} />
         )}
-        {(approvals.students || 0) > 0 && (
-          <PendingApprovalCard title="Students" count={approvals.students || 0} icon={UserPlus} href="/dashboard/approvals/students" color="green" delay={0.21} />
-        )}
+        {/* Students card intentionally removed — students auto-approve on
+            payment, there is no admin action required. */}
       </div>
     </motion.div>
   );
