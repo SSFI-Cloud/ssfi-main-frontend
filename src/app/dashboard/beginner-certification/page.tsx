@@ -42,6 +42,7 @@ const STATUS_CFG: Record<string, { bg: string; text: string }> = {
 
 const CAT_CFG: Record<string, { label: string; gradient: string; border: string }> = {
   SPEED_SKATING: { label: 'Speed Skating', gradient: 'from-sky-500 to-cyan-500', border: 'border-sky-200' },
+  // Legacy categories retained so existing data still renders, but not offered in pickers/filters
   ARTISTIC: { label: 'Artistic Skating', gradient: 'from-teal-500 to-teal-500', border: 'border-teal-200' },
   INLINE_HOCKEY: { label: 'Inline Hockey', gradient: 'from-teal-500 to-emerald-500', border: 'border-teal-200' },
   GENERAL: { label: 'General', gradient: 'from-emerald-500 to-teal-500', border: 'border-emerald-200' },
@@ -107,8 +108,6 @@ export default function BeginnerCertificationPage() {
           className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50">
           <option value="">All Categories</option>
           <option value="SPEED_SKATING">Speed Skating</option>
-          <option value="ARTISTIC">Artistic</option>
-          <option value="INLINE_HOCKEY">Inline Hockey</option>
           <option value="GENERAL">General</option>
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}

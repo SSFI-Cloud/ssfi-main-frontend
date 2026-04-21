@@ -141,7 +141,6 @@ export const EVENT_TYPES: { value: EventType; label: string }[] = [
 
 export const DISCIPLINES: { value: Discipline; label: string; icon: string }[] = [
     { value: 'SPEED', label: 'Speed Skating', icon: '🏃' },
-    { value: 'ARTISTIC', label: 'Artistic Skating', icon: '💃' },
     { value: 'HOCKEY', label: 'Roller Hockey', icon: '🏒' },
     { value: 'INLINE_FREESTYLE', label: 'Inline Freestyle', icon: '🎿' },
     { value: 'AGGRESSIVE', label: 'Aggressive Skating', icon: '🛹' },

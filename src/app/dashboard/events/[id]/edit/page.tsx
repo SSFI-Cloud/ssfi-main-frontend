@@ -38,8 +38,6 @@ const eventLevels = [
 const eventTypes = [
     'Speed Skating',
     'Figure Skating',
-    'Inline Hockey',
-    'Artistic Skating',
     'Recreational',
 ];
 

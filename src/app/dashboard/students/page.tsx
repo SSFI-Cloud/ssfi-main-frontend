@@ -50,12 +50,16 @@ interface Student {
     created_at: string;
 }
 
+// Categories shown in the filter dropdown on the Students Management page.
+// Artistic and Inline Hockey are intentionally not included — SSFI no
+// longer runs those programs. Legacy student records that still carry
+// those labels will still render correctly (they fall through to the
+// default grey pill in CATEGORY_COLORS), they just can't be picked as
+// a filter.
 const SKATE_CATEGORIES = [
     { value: 'SPEED_QUAD',    label: 'Speed Quad' },
     { value: 'SPEED_INLINE',  label: 'Speed Inline' },
     { value: 'RECREATIONAL',  label: 'Recreational' },
-    { value: 'ARTISTIC',      label: 'Artistic' },
-    { value: 'INLINE_HOCKEY', label: 'Inline Hockey' },
     { value: 'BEGINNER',      label: 'Beginner' },
 ];
 
@@ -63,8 +67,6 @@ const CATEGORY_COLORS: Record<string, string> = {
     'Speed Quad':    'bg-emerald-100 text-emerald-600',
     'Speed Inline':  'bg-green-100 text-green-600',
     'Recreational':  'bg-teal-100 text-teal-600',
-    'Artistic':      'bg-teal-100 text-teal-600',
-    'Inline Hockey': 'bg-emerald-100 text-emerald-600',
     'Beginner':      'bg-gray-100 text-gray-500',
 };
 

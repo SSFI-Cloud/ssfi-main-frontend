@@ -114,8 +114,6 @@ function CreateProgramForm() {
               <select value={form.category} onChange={e => set('category', e.target.value)} className={inputCls}>
                 <option value="GENERAL">General</option>
                 <option value="SPEED_SKATING">Speed Skating</option>
-                <option value="ARTISTIC">Artistic Skating</option>
-                <option value="INLINE_HOCKEY">Inline Hockey</option>
               </select>
             </div>
             <div className="md:col-span-2">
