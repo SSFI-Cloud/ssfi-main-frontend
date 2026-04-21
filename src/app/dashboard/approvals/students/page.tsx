@@ -40,14 +40,26 @@ interface Student {
     gender: 'MALE' | 'FEMALE' | 'OTHER';
     mobile: string;
     email: string;
-    club_name: string;
-    club_id: number;
+    club_name: string | null;
+    club_id: number | null;
+    school_name: string | null;
     district_name: string;
     state_name: string;
     coach_name: string;
     approval_status: string;
     profile_image: string | null;
     created_at: string;
+}
+
+/**
+ * School-mode registrants have no real Club row (clubId = null), so
+ * club_name comes back blank. Fall back to the school name instead —
+ * it's the identifier admins want to see. Returns label + badge type.
+ */
+function venueFor(s: Student): { label: string; kind: 'club' | 'school' | 'none' } {
+    if (s.club_name && s.club_name.trim()) return { label: s.club_name, kind: 'club' };
+    if (s.school_name && s.school_name.trim()) return { label: s.school_name, kind: 'school' };
+    return { label: '—', kind: 'none' };
 }
 
 interface Meta {
@@ -237,7 +249,19 @@ export default function RegisteredStudentsPage() {
                                             </div>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <p className="text-sm text-gray-900">{student.club_name}</p>
+                                            {(() => {
+                                                const v = venueFor(student);
+                                                return (
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-sm text-gray-900">{v.label}</p>
+                                                        {v.kind === 'school' && (
+                                                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">
+                                                                School
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="px-4 py-3">
                                             <p className="text-sm text-gray-700">{student.district_name}</p>
@@ -343,9 +367,18 @@ export default function RegisteredStudentsPage() {
                                         </div>
                                     ))}
                                     <div className="bg-gray-50 rounded-xl p-4 col-span-2">
-                                        <p className="text-xs text-gray-500 mb-1">Club</p>
-                                        <p className="font-medium text-gray-900">{viewingStudent.club_name}</p>
-                                        <p className="text-sm text-gray-500">{viewingStudent.district_name}, {viewingStudent.state_name}</p>
+                                        {(() => {
+                                            const v = venueFor(viewingStudent);
+                                            return (
+                                                <>
+                                                    <p className="text-xs text-gray-500 mb-1">
+                                                        {v.kind === 'school' ? 'School' : 'Club'}
+                                                    </p>
+                                                    <p className="font-medium text-gray-900">{v.label}</p>
+                                                    <p className="text-sm text-gray-500">{viewingStudent.district_name}, {viewingStudent.state_name}</p>
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             </div>

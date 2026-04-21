@@ -465,9 +465,21 @@ export default function StudentsPage() {
                                             <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">—</span>
                                         )}
                                     </td>
-                                    {/* Club */}
+                                    {/* Club — school-mode registrants have no real Club row,
+                                        so fall back to schoolName with a "School" badge. */}
                                     <td className="px-4 py-3">
-                                        <p className="text-sm text-gray-900">{student.club_name}</p>
+                                        {student.club_name ? (
+                                            <p className="text-sm text-gray-900">{student.club_name}</p>
+                                        ) : student.school_name ? (
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm text-gray-900">{student.school_name}</p>
+                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">
+                                                    School
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-400">—</p>
+                                        )}
                                         <p className="text-xs text-gray-500">{student.district_name}</p>
                                     </td>
                                     {/* Age */}
