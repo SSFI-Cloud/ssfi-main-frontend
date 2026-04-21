@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useStates, useDistricts } from '@/lib/hooks/useStudent';
 
 interface ClubData {
     id: string;
@@ -40,6 +41,10 @@ export default function EditClubPage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+    // Cascading location hooks — admin can re-assign a club's state/district.
+    const { fetchStates, data: statesList } = useStates();
+    const { fetchDistricts, data: districtsList, clearDistricts } = useDistricts();
 
     useEffect(() => {
         if (!token || !id) return;
@@ -80,6 +85,16 @@ export default function EditClubPage() {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
     };
+
+    // Load states once on mount
+    useEffect(() => { fetchStates(); }, [fetchStates]);
+
+    // Whenever the club's state changes (either loaded or user-picked),
+    // refresh the district list for that state.
+    useEffect(() => {
+        if (form.stateId) fetchDistricts(String(form.stateId));
+        else clearDistricts();
+    }, [form.stateId, fetchDistricts, clearDistricts]);
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -184,6 +199,52 @@ export default function EditClubPage() {
                         {field('Pincode', 'pincode', <Hash className="w-4 h-4" />)}
                         {field('Established Year', 'establishedYear', <Calendar className="w-4 h-4" />, 'number')}
                         {field('Website', 'website', <Globe className="w-4 h-4" />, 'url')}
+
+                        {/* State + District — admin can re-assign a club's
+                            location (common for data cleanup when the wrong
+                            district was picked on original registration). */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><MapPin className="w-4 h-4" /></span>
+                                <select
+                                    name="stateId"
+                                    value={form.stateId ?? ''}
+                                    onChange={e => {
+                                        const v = e.target.value ? Number(e.target.value) : undefined;
+                                        // Changing state invalidates the current district — reset it.
+                                        setForm(prev => ({ ...prev, stateId: v, districtId: undefined }));
+                                    }}
+                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                >
+                                    <option value="">Select state</option>
+                                    {statesList.map((s: any) => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><MapPin className="w-4 h-4" /></span>
+                                <select
+                                    name="districtId"
+                                    value={form.districtId ?? ''}
+                                    onChange={e => {
+                                        const v = e.target.value ? Number(e.target.value) : undefined;
+                                        setForm(prev => ({ ...prev, districtId: v }));
+                                    }}
+                                    disabled={!form.stateId}
+                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                >
+                                    <option value="">{form.stateId ? 'Select district' : 'Pick state first'}</option>
+                                    {districtsList.map((d: any) => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Club Logo Upload */}
