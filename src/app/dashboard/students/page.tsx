@@ -298,11 +298,14 @@ export default function StudentsPage() {
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Pending card intentionally dropped — students auto-approve on
+                successful payment, so "pending" here is just abandoned form
+                attempts (no admin action possible). Seeing the number just
+                caused confusion about what there was to do. */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                     { label: 'Total',    value: stats.totalStudents,    Icon: Users,       color: 'text-emerald-600',   bg: 'bg-emerald-100' },
                     { label: 'Verified', value: stats.verifiedStudents, Icon: CheckCircle, color: 'text-green-600',  bg: 'bg-green-100' },
-                    { label: 'Pending',  value: stats.pendingStudents,  Icon: Clock,       color: 'text-amber-600',  bg: 'bg-amber-100' },
                     { label: 'Male',     value: stats.maleStudents,     Icon: User,        color: 'text-cyan-600',   bg: 'bg-cyan-100' },
                     { label: 'Female',   value: stats.femaleStudents,   Icon: Trophy,      color: 'text-teal-600',   bg: 'bg-teal-100' },
                 ].map(({ label, value, Icon, color, bg }, i) => (
