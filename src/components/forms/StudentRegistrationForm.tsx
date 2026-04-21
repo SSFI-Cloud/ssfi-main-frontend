@@ -46,7 +46,12 @@ export default function StudentRegistrationForm() {
   const [renewKycResult, setRenewKycResult] = useState<KycResult | null>(null);
   const [renewProfile, setRenewProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  // Default expanded. Used to be collapsed with a small "Review or update
+  // your details" caret, but users went straight to Pay & Renew without
+  // ever touching it — which meant legacy students never got a chance to
+  // fill in their missing district / club / updated phone / email before
+  // payment. Make the form the default state so the step is unmissable.
+  const [showProfileEdit, setShowProfileEdit] = useState(true);
   const [profileEdits, setProfileEdits] = useState<any>({});
 
   // Cascading location data for the renewal profile edit form.
@@ -557,11 +562,28 @@ export default function StudentRegistrationForm() {
                               </div>
                             </div>
 
-                            {/* Email */}
+                            {/* Contact — email editable, phone read-only because
+                                it's the login identifier and has a unique
+                                constraint. Admin can reset phone on request. */}
                             <div>
-                              <label className="text-xs text-gray-500 mb-1 block">Email</label>
-                              <input type="email" value={profileEdits.email || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, email: e.target.value }))}
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contact</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Email</label>
+                                  <input type="email" value={profileEdits.email || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, email: e.target.value }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">Phone <span className="text-gray-400">(login ID — contact admin to change)</span></label>
+                                  <input
+                                    type="tel"
+                                    value={renewMember?.phone || profileEdits.phone || ''}
+                                    readOnly
+                                    disabled
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600 cursor-not-allowed"
+                                  />
+                                </div>
+                              </div>
                             </div>
 
                             <button type="button" onClick={handleSaveProfile} disabled={profileSaveLoading}
