@@ -49,6 +49,8 @@ interface Student {
     approval_status: string;
     profile_image: string | null;
     created_at: string;
+    last_payment_date: string | null;
+    last_payment_type: 'STUDENT_REGISTRATION' | 'RENEWAL_FEE' | null;
 }
 
 /**
@@ -268,7 +270,16 @@ export default function RegisteredStudentsPage() {
                                             <p className="text-xs text-gray-600">{student.state_name}</p>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <p className="text-sm text-gray-500">{fmtDate(student.created_at)}</p>
+                                            <p className="text-sm text-gray-900">
+                                                {fmtDate(student.last_payment_date || student.created_at)}
+                                            </p>
+                                            <p className="text-[11px] text-gray-500">
+                                                {student.last_payment_type === 'RENEWAL_FEE'
+                                                    ? 'Renewed'
+                                                    : student.last_payment_type === 'STUDENT_REGISTRATION'
+                                                        ? 'Registered'
+                                                        : ''}
+                                            </p>
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-2">

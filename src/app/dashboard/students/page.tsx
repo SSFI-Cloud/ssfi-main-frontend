@@ -73,7 +73,9 @@ export default function StudentsPage() {
     const [students, setStudents] = useState<Student[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('all');
-    const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'pending'>('all');
+    // Default to "verified" so unpaid registration attempts don't clutter
+    // the list. Admin can still pick "All" or "Pending" explicitly.
+    const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'pending'>('verified');
     const [stateFilter, setStateFilter] = useState('all');
     const [districtFilter, setDistrictFilter] = useState('all');
     const [clubFilter, setClubFilter] = useState('all');
@@ -368,7 +370,7 @@ export default function StudentsPage() {
                         <option value="all">{districtFilter === 'all' ? 'Select district first' : 'All Clubs'}</option>
                         {clubList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    {(stateFilter !== 'all' || districtFilter !== 'all' || clubFilter !== 'all' || categoryFilter !== 'all' || verificationFilter !== 'all') && (
+                    {(stateFilter !== 'all' || districtFilter !== 'all' || clubFilter !== 'all' || categoryFilter !== 'all' || verificationFilter !== 'verified') && (
                         <button
                             type="button"
                             onClick={() => {
@@ -376,11 +378,11 @@ export default function StudentsPage() {
                                 setDistrictFilter('all');
                                 setClubFilter('all');
                                 setCategoryFilter('all');
-                                setVerificationFilter('all');
+                                setVerificationFilter('verified');
                             }}
                             className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium whitespace-nowrap"
                         >
-                            Clear filters
+                            Reset filters
                         </button>
                     )}
                 </div>
