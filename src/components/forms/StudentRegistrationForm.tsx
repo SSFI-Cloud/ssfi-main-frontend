@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 import { useRegistrationStore } from '@/lib/store/registrationStore';
-import { useRegisterStudent, calculateAge, getAgeCategoryFromAge } from '@/lib/hooks/useStudent';
+import { useRegisterStudent, calculateAge, getAgeCategoryFromAge, useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 import { registrationSchema } from '@/lib/validations/student';
 import { useRenewal, type MemberLookupResult } from '@/lib/hooks/useAffiliationLookup';
 import { api } from '@/lib/api/client';
@@ -48,6 +48,14 @@ export default function StudentRegistrationForm() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [profileEdits, setProfileEdits] = useState<any>({});
+
+  // Cascading location data for the renewal profile edit form.
+  // Many legacy students have NULL districtId because the original import
+  // only captured stateId — this gives them a way to fill that in during
+  // renewal so admin filters by district actually work afterwards.
+  const { fetchStates: fetchRenewStates, data: renewStates } = useStates();
+  const { fetchDistricts: fetchRenewDistricts, data: renewDistricts, clearDistricts: clearRenewDistricts } = useDistricts();
+  const { fetchClubs: fetchRenewClubs, data: renewClubs, clearClubs: clearRenewClubs } = useClubs();
   const [profileSaveLoading, setProfileSaveLoading] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -138,6 +146,23 @@ export default function StudentRegistrationForm() {
     rzp.on('payment.failed', (r: any) => toast.error(r.error.description || 'Payment failed'));
     rzp.open();
   };
+
+  // Pre-load states when the renewal edit panel is used.
+  useEffect(() => {
+    fetchRenewStates();
+  }, [fetchRenewStates]);
+
+  // When stateId / districtId change in the edit form, refresh the
+  // child dropdowns. Safe to re-run on every render of the edit panel.
+  useEffect(() => {
+    if (profileEdits.stateId) fetchRenewDistricts(String(profileEdits.stateId));
+    else clearRenewDistricts();
+  }, [profileEdits.stateId, fetchRenewDistricts, clearRenewDistricts]);
+
+  useEffect(() => {
+    if (profileEdits.districtId) fetchRenewClubs(String(profileEdits.districtId));
+    else clearRenewClubs();
+  }, [profileEdits.districtId, fetchRenewClubs, clearRenewClubs]);
 
   // Fetch student profile + check existing KYC when member is found
   const handleMemberFound = async (member: MemberLookupResult) => {
@@ -399,6 +424,69 @@ export default function StudentRegistrationForm() {
                                   <label className="text-xs text-gray-500 mb-1 block">Pincode</label>
                                   <input value={profileEdits.pincode || ''} onChange={e => setProfileEdits((p: any) => ({ ...p, pincode: e.target.value }))}
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* State / District / Club — cascading.
+                                Many legacy students come through renewal
+                                with districtId=NULL; this lets them set it. */}
+                            <div>
+                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">State & District</p>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">State</label>
+                                  <select
+                                    value={profileEdits.stateId || ''}
+                                    onChange={e => setProfileEdits((p: any) => ({
+                                      ...p,
+                                      stateId: e.target.value ? Number(e.target.value) : null,
+                                      // Reset child selections whenever parent changes
+                                      districtId: null,
+                                      clubId: null,
+                                    }))}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                  >
+                                    <option value="">Select state</option>
+                                    {renewStates.map((s: any) => (
+                                      <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500 mb-1 block">District</label>
+                                  <select
+                                    value={profileEdits.districtId || ''}
+                                    onChange={e => setProfileEdits((p: any) => ({
+                                      ...p,
+                                      districtId: e.target.value ? Number(e.target.value) : null,
+                                      clubId: null,
+                                    }))}
+                                    disabled={!profileEdits.stateId}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <option value="">{profileEdits.stateId ? 'Select district' : 'Pick state first'}</option>
+                                    {renewDistricts.map((d: any) => (
+                                      <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="col-span-2">
+                                  <label className="text-xs text-gray-500 mb-1 block">Club</label>
+                                  <select
+                                    value={profileEdits.clubId || ''}
+                                    onChange={e => setProfileEdits((p: any) => ({
+                                      ...p,
+                                      clubId: e.target.value ? Number(e.target.value) : null,
+                                    }))}
+                                    disabled={!profileEdits.districtId}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <option value="">{profileEdits.districtId ? 'Select club (optional)' : 'Pick district first'}</option>
+                                    {renewClubs.map((c: any) => (
+                                      <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                  </select>
                                 </div>
                               </div>
                             </div>
