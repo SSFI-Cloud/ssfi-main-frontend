@@ -133,9 +133,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
           <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0 overflow-hidden">
-            {user?.profile_photo
-              ? <Image src={user.profile_photo} alt={user.name || 'User'} fill className="object-cover" />
-              : <span>{user?.name?.[0]?.toUpperCase() || 'U'}</span>}
+            {(() => {
+              // Backend stores relative /uploads/... paths; Next.js <Image>
+              // rejects any domain that isn't whitelisted in next.config,
+              // so the sidebar avatar always fell through to the "A" initial.
+              // Use a regular <img> prefixed with the API origin instead.
+              const raw = user?.profile_photo;
+              if (!raw) return <span>{user?.name?.[0]?.toUpperCase() || 'U'}</span>;
+              const src =
+                raw.startsWith('http') || raw.startsWith('data:') || raw.startsWith('blob:')
+                  ? raw
+                  : `https://api.ssfiskate.com${raw.startsWith('/') ? '' : '/'}${raw}`;
+              // eslint-disable-next-line @next/next/no-img-element
+              return <img src={src} alt={user?.name || 'User'} className="w-full h-full object-cover" />;
+            })()}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-sm truncate">{user?.name || 'User'}</p>

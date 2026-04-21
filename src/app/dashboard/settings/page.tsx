@@ -11,6 +11,18 @@ import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
+// The backend stores profile photos as relative paths under /uploads/...
+// Settings wasn't prefixing them with the API origin, so <img src> resolved
+// against the Vercel frontend origin and 404'd. Match the admin pages'
+// convention.
+const IMG_BASE = 'https://api.ssfiskate.com';
+const resolvePhoto = (path?: string | null) => {
+    if (!path) return null;
+    if (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) return path;
+    const slash = path.startsWith('/') ? '' : '/';
+    return `${IMG_BASE}${slash}${path}`;
+};
+
 interface ProfileData {
     name?: string;
     gender?: string;
@@ -483,11 +495,20 @@ export default function SettingsPage() {
                                         <p className="text-gray-500 text-sm mb-4">Update your profile photo.</p>
                                         <div className="flex items-center gap-4">
                                             <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-100 flex items-center justify-center">
-                                                {formData.profilePhoto || (profile as any)?.profilePhoto ? (
-                                                    <img src={formData.profilePhoto || (profile as any)?.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <User className="w-10 h-10 text-gray-300" />
-                                                )}
+                                                {(() => {
+                                                    // Priority: locally-picked new file (data: URL) →
+                                                    // stored profilePhoto → Aadhaar-KYC photo fallback.
+                                                    // Resolve relative paths against the API origin.
+                                                    const src =
+                                                        resolvePhoto(formData.profilePhoto as string) ||
+                                                        resolvePhoto((profile as any)?.profilePhoto) ||
+                                                        resolvePhoto((profile as any)?.kycProfileImage);
+                                                    return src ? (
+                                                        <img src={src} alt="Profile" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <User className="w-10 h-10 text-gray-300" />
+                                                    );
+                                                })()}
                                             </div>
                                             <div>
                                                 <label className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-medium cursor-pointer hover:bg-emerald-100 transition-colors border border-emerald-200">
