@@ -184,12 +184,19 @@ export const useRegistrationStore = create<RegistrationState>()(
     }),
     {
       name: 'ssfi-registration-form',
-      partialize: (state) => ({
-        currentStep: state.currentStep,
-        formData: state.formData,
-        completedSteps: state.completedSteps,
-        // Don't persist large file previews
-      }),
+      partialize: (state) => {
+        // Strip base64 image blobs out of formData before persisting. These
+        // fields hold data: URIs that are often > 1MB each and blow past
+        // localStorage quota, and persisting them leaks a previous user's
+        // photos into a fresh registration on the same browser.
+        const { profilePhoto, birthCertificate, kycProfileImage, photoFile, birthCertificateFile, ...lightFormData } =
+          (state.formData as any) || {};
+        return {
+          currentStep: state.currentStep,
+          formData: lightFormData,
+          completedSteps: state.completedSteps,
+        };
+      },
     }
   )
 );
