@@ -82,6 +82,13 @@ export default function StudentsPage() {
     const [districtFilter, setDistrictFilter] = useState('all');
     const [clubFilter, setClubFilter] = useState('all');
 
+    // "Students (FY)" tab — when toggled on, backend narrows the list to
+    // students registered new or renewed inside the active student window.
+    // We fetch the active window once on mount so we can both label the tab
+    // with its fiscal year (derived from startDate/endDate) and send its id.
+    const [activeWindow, setActiveWindow] = useState<{ id: number; startDate: string; endDate: string; title?: string } | null>(null);
+    const [windowTabActive, setWindowTabActive] = useState(false);
+
     // Cascading location data for the filter dropdowns
     const { fetchStates, data: stateList } = useStates();
     const { fetchDistricts, data: districtList, clearDistricts } = useDistricts();
@@ -115,6 +122,7 @@ export default function StudentsPage() {
         if (stateFilter !== 'all') params.stateId = stateFilter;
         if (districtFilter !== 'all') params.districtId = districtFilter;
         if (clubFilter !== 'all') params.clubId = clubFilter;
+        if (windowTabActive && activeWindow?.id) params.registrationWindowId = activeWindow.id;
         return params;
     };
 
@@ -150,10 +158,46 @@ export default function StudentsPage() {
 
     useEffect(() => {
         fetchStudents();
-    }, [currentPage, searchQuery, categoryFilter, verificationFilter, stateFilter, districtFilter, clubFilter, sortField, sortOrder]);
+    }, [currentPage, searchQuery, categoryFilter, verificationFilter, stateFilter, districtFilter, clubFilter, sortField, sortOrder, windowTabActive, activeWindow?.id]);
 
     // Load states once on mount
     useEffect(() => { fetchStates(); }, [fetchStates]);
+
+    // Load the currently-active student registration window. We need it both
+    // to (a) show/hide the "Students (FY)" tab and (b) send its id to the
+    // backend when the tab is active. 404 is expected when no window is open.
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api.get('/registration-windows/active/student');
+                const data = (res.data as any)?.data ?? res.data;
+                if (data?.id) {
+                    setActiveWindow({
+                        id: data.id,
+                        startDate: data.startDate,
+                        endDate: data.endDate,
+                        title: data.title,
+                    });
+                }
+            } catch {
+                // No active window → just don't render the tab.
+            }
+        })();
+    }, []);
+
+    // Derive a "26-27" style label from the active window's startDate.
+    // Indian fiscal year runs Apr–Mar, so a window opened in Apr-2026 is FY
+    // 26-27. If we can't parse the date we fall back to just "Current".
+    const fiscalLabel = (() => {
+        if (!activeWindow?.startDate) return 'Current';
+        const d = new Date(activeWindow.startDate);
+        if (isNaN(d.getTime())) return 'Current';
+        const month = d.getMonth(); // 0-indexed; Apr = 3
+        const year = d.getFullYear();
+        const fyStart = month >= 3 ? year : year - 1;
+        const fyEnd = fyStart + 1;
+        return `${String(fyStart).slice(-2)}-${String(fyEnd).slice(-2)}`;
+    })();
 
     // Cascade: reset lower filters when parent changes, and fetch the child list
     useEffect(() => {
@@ -296,6 +340,35 @@ export default function StudentsPage() {
             {error && (
                 <div className="bg-red-100 border border-red-500/50 text-red-500 p-4 rounded-lg flex items-center gap-2">
                     <AlertCircle className="w-5 h-5" /> {error}
+                </div>
+            )}
+
+            {/* Tabs: All students vs students from the open registration window.
+                Only renders when a student window is currently active — when
+                nothing is open there's nothing meaningful to filter to. */}
+            {activeWindow && (
+                <div className="inline-flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                    <button
+                        onClick={() => { setWindowTabActive(false); setCurrentPage(1); }}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                            !windowTabActive
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                    >
+                        All Students
+                    </button>
+                    <button
+                        onClick={() => { setWindowTabActive(true); setCurrentPage(1); }}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                            windowTabActive
+                                ? 'bg-white text-emerald-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                        title="Students registered new or renewed during the open registration window"
+                    >
+                        Students ({fiscalLabel})
+                    </button>
                 </div>
             )}
 
