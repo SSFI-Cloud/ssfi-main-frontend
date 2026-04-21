@@ -64,6 +64,11 @@ export default function EditEventPage() {
     const [bannerImage, setBannerImage] = useState<string | null>(null);
     const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
+    // Event Type: when the user picks "+ Add custom type..." the select is swapped
+    // for a free-text input. On load, if the saved event.type isn't in the preset
+    // list we auto-enter custom mode so the saved value stays visible.
+    const [useCustomType, setUseCustomType] = useState(false);
+
     const [formData, setFormData] = useState({
         name: '',
         code: '',
@@ -112,10 +117,14 @@ export default function EditEventPage() {
                     return new Date(dateStr).toISOString().split('T')[0];
                 };
 
+                const savedType = event.type || 'Speed Skating';
+                if (savedType && !eventTypes.includes(savedType)) {
+                    setUseCustomType(true);
+                }
                 setFormData({
                     name: event.name || '',
                     code: event.code || '',
-                    type: event.type || 'Speed Skating',
+                    type: savedType,
                     category: event.category || 'Championship',
                     level: event.eventLevel || event.level || 'DISTRICT',
                     stateId: event.stateId ? String(event.stateId) : '',
@@ -298,15 +307,47 @@ export default function EditEventPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-2">Event Type</label>
-                            <select
-                                value={formData.type}
-                                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                            >
-                                {eventTypes.map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
+                            {useCustomType ? (
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                        placeholder="Enter custom event type"
+                                        autoFocus
+                                        className="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setUseCustomType(false);
+                                            setFormData({ ...formData, type: eventTypes[0] });
+                                        }}
+                                        className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-medium transition-colors"
+                                        title="Pick from list instead"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <select
+                                    value={formData.type}
+                                    onChange={(e) => {
+                                        if (e.target.value === '__custom__') {
+                                            setUseCustomType(true);
+                                            setFormData({ ...formData, type: '' });
+                                        } else {
+                                            setFormData({ ...formData, type: e.target.value });
+                                        }
+                                    }}
+                                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                                >
+                                    {eventTypes.map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                    <option value="__custom__">+ Add custom type…</option>
+                                </select>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-500 mb-2">Category</label>
