@@ -19,7 +19,6 @@ import {
     ImagePlus, X,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
-import { useAuth } from '@/lib/hooks/useAuth';
 
 interface FormData {
     name: string;
@@ -31,7 +30,6 @@ interface FormData {
 export default function EditDistrictPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { token } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -45,7 +43,7 @@ export default function EditDistrictPage() {
     const logoRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (!token || !id) return;
+        if (!id) return;
         (async () => {
             setIsLoading(true);
             try {
@@ -53,8 +51,18 @@ export default function EditDistrictPage() {
                     api.get(`/districts/${id}`),
                     api.get('/locations/states'),
                 ]);
-                const d = districtRes.data?.data ?? districtRes.data;
-                const st = statesRes.data?.data ?? statesRes.data;
+                // Backend wraps the district in { status, data: { district: {...} } }
+                // — earlier code stopped one level too shallow and every
+                // field came through undefined.
+                const dPayload = districtRes.data?.data ?? districtRes.data;
+                const d = dPayload?.district ?? dPayload ?? {};
+                // /locations/states returns a bare array under data (no
+                // `states` key) — but be defensive in case the shape
+                // changes.
+                const stPayload = statesRes.data?.data ?? statesRes.data;
+                const st = Array.isArray(stPayload)
+                    ? stPayload
+                    : (stPayload?.states ?? []);
                 setForm({
                     name: d.name || '',
                     code: d.code || '',
@@ -69,7 +77,7 @@ export default function EditDistrictPage() {
                 setIsLoading(false);
             }
         })();
-    }, [token, id]);
+    }, [id]);
 
     const set = (field: keyof FormData, value: string) =>
         setForm((prev) => ({ ...prev, [field]: value }));

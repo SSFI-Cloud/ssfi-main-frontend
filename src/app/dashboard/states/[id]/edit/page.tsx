@@ -22,7 +22,6 @@ import {
     ImagePlus, X, Globe, Crown,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
-import { useAuth } from '@/lib/hooks/useAuth';
 
 interface FormData {
     name: string;
@@ -38,7 +37,6 @@ interface FormData {
 export default function EditStatePage() {
     const { id } = useParams();
     const router = useRouter();
-    const { token } = useAuth();
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -58,12 +56,17 @@ export default function EditStatePage() {
     const presidentRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (!token || !id) return;
+        if (!id) return;
         (async () => {
             setIsLoading(true);
             try {
                 const res = await api.get(`/states/${id}`);
-                const s = res.data?.data ?? res.data;
+                // Backend wraps the state in { status, data: { state: {...} } }
+                // so we have to unwrap twice. The earlier `res.data?.data ??
+                // res.data` left `s` as `{ state: ... }` and every field
+                // came through undefined.
+                const payload = res.data?.data ?? res.data;
+                const s = payload?.state ?? payload ?? {};
                 setForm({
                     name: s.name || '',
                     code: s.code || '',
@@ -80,7 +83,7 @@ export default function EditStatePage() {
                 setIsLoading(false);
             }
         })();
-    }, [token, id]);
+    }, [id]);
 
     const set = (field: keyof FormData, value: string) =>
         setForm((prev) => ({ ...prev, [field]: value }));
