@@ -22,7 +22,11 @@ export default function NewClubPage() {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     // Payment
-    const [paymentMode, setPaymentMode] = useState<'offline' | 'online'>('offline');
+    // Payment mode was previously an offline/online toggle. Federation rule:
+    // registration fees for a new club always route to the federation's
+    // Razorpay account — no offline option, no secretary-specific routing.
+    // The offline branch and its UI card are removed; the submit always
+    // generates a Razorpay payment link.
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
 
@@ -122,22 +126,17 @@ export default function NewClubPage() {
                 termsAccepted: true,
             };
 
-            if (paymentMode === 'offline') {
-                await api.post('/affiliations/club/admin-create', payload);
+            // Always online — generate a Razorpay payment link to the
+            // federation's account.
+            const res = await api.post('/affiliations/club/admin-initiate', payload);
+            const order = res.data?.data || res.data;
+            if (order?.razorpayOrderId) {
+                const link = `${window.location.origin}/register/payment?orderId=${order.razorpayOrderId}&amount=${order.amount}&name=${encodeURIComponent(formData.clubName)}&uid=${encodeURIComponent(order.uid || '')}&type=club&key=${order.key}`;
+                setPaymentLink(link);
                 setSuccess(true);
-                toast.success('Club created successfully!');
-                setTimeout(() => router.push('/dashboard/clubs'), 2000);
+                toast.success('Registration initiated! Share the payment link.');
             } else {
-                const res = await api.post('/affiliations/club/admin-initiate', payload);
-                const order = res.data?.data || res.data;
-                if (order?.razorpayOrderId) {
-                    const link = `${window.location.origin}/register/payment?orderId=${order.razorpayOrderId}&amount=${order.amount}&name=${encodeURIComponent(formData.clubName)}&uid=${encodeURIComponent(order.uid || '')}&type=club&key=${order.key}`;
-                    setPaymentLink(link);
-                    setSuccess(true);
-                    toast.success('Registration initiated! Share the payment link.');
-                } else {
-                    throw new Error('Failed to create payment order');
-                }
+                throw new Error('Failed to create payment order');
             }
         } catch (err: any) {
             setError(err.response?.data?.message || err.message || 'Failed to create club');
@@ -368,30 +367,21 @@ export default function NewClubPage() {
                             </label>
                             <FieldError field="termsAccepted" />
 
-                            {/* Payment mode */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-900 mb-3">Payment Mode</label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <button type="button" onClick={() => setPaymentMode('offline')}
-                                        className={`p-4 rounded-xl border-2 text-left transition-all ${paymentMode === 'offline' ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300'}`}>
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMode === 'offline' ? 'border-emerald-500' : 'border-gray-300'}`}>
-                                                {paymentMode === 'offline' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
-                                            </div>
-                                            <span className="font-semibold text-gray-900">Offline Payment</span>
-                                        </div>
-                                        <p className="text-sm text-gray-500 ml-8">Register now, collect payment separately</p>
-                                    </button>
-                                    <button type="button" onClick={() => setPaymentMode('online')}
-                                        className={`p-4 rounded-xl border-2 text-left transition-all ${paymentMode === 'online' ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300'}`}>
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMode === 'online' ? 'border-emerald-500' : 'border-gray-300'}`}>
-                                                {paymentMode === 'online' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
-                                            </div>
-                                            <span className="font-semibold text-gray-900">Online Payment</span>
-                                        </div>
-                                        <p className="text-sm text-gray-500 ml-8">Generate Razorpay link to share</p>
-                                    </button>
+                            {/* Info card explaining the (now mandatory) online payment.
+                                The offline / online toggle that used to live here was removed
+                                per the federation rule: club registration fees always route
+                                online to the federation's Razorpay account. */}
+                            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                                <div className="flex items-start gap-3">
+                                    <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-emerald-900">Online payment via Razorpay</p>
+                                        <p className="text-xs text-emerald-700 mt-0.5">
+                                            On submit, a Razorpay payment link will be generated for the club owner.
+                                            Share it with them to complete the affiliation fee. The registration is
+                                            confirmed once payment is verified.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -407,8 +397,6 @@ export default function NewClubPage() {
                             className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 text-sm shadow-sm disabled:opacity-50">
                             {isLoading ? (
                                 <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
-                            ) : paymentMode === 'offline' ? (
-                                <><CheckCircle className="w-5 h-5" /> Create Club</>
                             ) : (
                                 <><CreditCard className="w-5 h-5" /> Generate Payment Link</>
                             )}
