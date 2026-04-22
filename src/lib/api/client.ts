@@ -4,34 +4,25 @@ import { toast } from 'react-hot-toast';
 // API Client Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1';
 
-// Create axios instance.
-// D3 Phase 2: `withCredentials: true` tells axios to include cookies on
-// every request, which is how the backend's HttpOnly accessToken cookie
-// gets attached. The backend (see auth.middleware.ts) reads either the
-// Authorization: Bearer header OR cookies.accessToken, so legacy clients
-// still working off localStorage continue to authenticate alongside new
-// cookie-based sessions.
+// Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor — attach the legacy Bearer token when it's still
-// in localStorage. New sessions rely on the HttpOnly cookie attached
-// automatically by `withCredentials: true`, so this branch only fires
-// for users who haven't yet re-logged-in after the cookie rollout.
-// Once localStorage is fully drained this block becomes a no-op and we
-// can remove it in Phase 3 cleanup.
+// Request interceptor - Add auth token
 apiClient.interceptors.request.use(
   (config) => {
+    // Get token from localStorage
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => {
@@ -51,36 +42,26 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // Refresh flow. The backend reads the refresh token from either the
-      // HttpOnly `refreshToken` cookie (preferred, set by /auth/login) or
-      // the request body (legacy). With `withCredentials: true` the cookie
-      // rides along automatically, so we can call /auth/refresh with no
-      // body for new sessions and still fall back to the body token for
-      // legacy ones.
       try {
-        const legacyRefreshToken = typeof window !== 'undefined'
-          ? localStorage.getItem('refreshToken')
-          : null;
+        // Try to refresh token
+        const refreshToken = localStorage.getItem('refreshToken');
 
-        const response = await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
-          legacyRefreshToken ? { refreshToken: legacyRefreshToken } : {},
-          { withCredentials: true },
-        );
+        if (refreshToken) {
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken,
+          });
 
-        const { accessToken } = response.data.data;
-        // Only persist to localStorage if the legacy path is still in
-        // play (user had a refreshToken there). New cookie-only sessions
-        // should never write the token back into JS-readable storage.
-        if (legacyRefreshToken && accessToken) {
+          const { accessToken } = response.data.data;
           localStorage.setItem('accessToken', accessToken);
+
+          // Retry original request
           if (originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           }
+          return apiClient(originalRequest);
         }
-        return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed — fall through to clear & redirect.
+        // Refresh failed - fall through to clear & redirect
       }
 
       // No refresh token or refresh failed - clear everything and redirect
