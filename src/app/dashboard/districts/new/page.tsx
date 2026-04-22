@@ -21,16 +21,17 @@ const GENDERS = [
 
 export default function NewDistrictPage() {
     const router = useRouter();
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-    // Payment
-    // Payment mode toggle was removed — district secretary registration
-    // fees always route online to the federation's Razorpay account.
-    // See dashboard/clubs/new for the same treatment.
+    // Federation rule (2026): offline payment is GLOBAL_ADMIN only. State
+    // secretaries creating a district secretary still go online through
+    // Razorpay — the toggle is hidden for them and paymentMode stays 'online'.
+    const isGlobalAdmin = user?.role === 'GLOBAL_ADMIN';
+    const [paymentMode, setPaymentMode] = useState<'offline' | 'online'>(isGlobalAdmin ? 'offline' : 'online');
     const [paymentLink, setPaymentLink] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
 
@@ -141,24 +142,30 @@ export default function NewDistrictPage() {
                 termsAccepted: true,
             };
 
-            // Always online — generate a Razorpay payment link to the
-            // federation's account.
-            {
-                const affiliationPayload = {
-                    name: formData.secretaryName.trim(),
-                    gender: formData.secretaryGender,
-                    email: formData.secretaryEmail.trim(),
-                    phone: formData.secretaryPhone.trim(),
-                    stateId: formData.stateId,
-                    districtId: formData.districtId,
-                    residentialAddress: formData.residentialAddress.trim(),
-                    associationName: formData.associationName.trim() || undefined,
-                    profilePhoto: formData.profilePhoto,
-                    logo: formData.associationLogo,
-                    associationRegistrationCopy: formData.registrationCopy,
-                    termsAccepted: true,
-                };
+            const affiliationPayload = {
+                name: formData.secretaryName.trim(),
+                gender: formData.secretaryGender,
+                email: formData.secretaryEmail.trim(),
+                phone: formData.secretaryPhone.trim(),
+                stateId: formData.stateId,
+                districtId: formData.districtId,
+                residentialAddress: formData.residentialAddress.trim(),
+                associationName: formData.associationName.trim() || undefined,
+                profilePhoto: formData.profilePhoto,
+                logo: formData.associationLogo,
+                associationRegistrationCopy: formData.registrationCopy,
+                termsAccepted: true,
+            };
 
+            if (paymentMode === 'offline') {
+                // Offline branch — GLOBAL_ADMIN only (route-enforced). Creates
+                // the district secretary directly with status='APPROVED',
+                // no Razorpay order.
+                await api.post('/affiliations/district-secretary/admin-create', affiliationPayload);
+                setSuccess(true);
+                toast.success('District secretary created (offline payment).');
+                setTimeout(() => router.push('/dashboard/districts'), 2000);
+            } else {
                 const res = await api.post('/affiliations/district-secretary/admin-initiate', affiliationPayload);
                 const order = res.data?.data || res.data;
                 if (order?.razorpayOrderId) {
@@ -426,21 +433,50 @@ export default function NewDistrictPage() {
                             </label>
                             <FieldError field="termsAccepted" />
 
-                            {/* Info card — always online to the federation account.
-                                See clubs/new for the same rule. */}
-                            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                                <div className="flex items-start gap-3">
-                                    <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-semibold text-emerald-900">Online payment via Razorpay</p>
-                                        <p className="text-xs text-emerald-700 mt-0.5">
-                                            On submit, a Razorpay payment link will be generated for the district
-                                            secretary. Share it with them to complete the affiliation fee. The
-                                            registration is confirmed once payment is verified.
-                                        </p>
+                            {/* Federation rule: offline toggle only for
+                                GLOBAL_ADMIN. Other roles see the online-only
+                                info card. */}
+                            {isGlobalAdmin ? (
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-900 mb-3">Payment Mode</label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <button type="button" onClick={() => setPaymentMode('offline')}
+                                            className={`p-4 rounded-xl border-2 text-left transition-all ${paymentMode === 'offline' ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300'}`}>
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMode === 'offline' ? 'border-emerald-500' : 'border-gray-300'}`}>
+                                                    {paymentMode === 'offline' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                                                </div>
+                                                <span className="font-semibold text-gray-900">Offline Payment</span>
+                                            </div>
+                                            <p className="text-sm text-gray-500 ml-8">Register now, collect payment separately</p>
+                                        </button>
+                                        <button type="button" onClick={() => setPaymentMode('online')}
+                                            className={`p-4 rounded-xl border-2 text-left transition-all ${paymentMode === 'online' ? 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300'}`}>
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMode === 'online' ? 'border-emerald-500' : 'border-gray-300'}`}>
+                                                    {paymentMode === 'online' && <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />}
+                                                </div>
+                                                <span className="font-semibold text-gray-900">Online Payment</span>
+                                            </div>
+                                            <p className="text-sm text-gray-500 ml-8">Generate Razorpay link to share</p>
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                                    <div className="flex items-start gap-3">
+                                        <CreditCard className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-emerald-900">Online payment via Razorpay</p>
+                                            <p className="text-xs text-emerald-700 mt-0.5">
+                                                On submit, a Razorpay payment link will be generated for the district
+                                                secretary. Share it with them to complete the affiliation fee. The
+                                                registration is confirmed once payment is verified.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -454,6 +490,8 @@ export default function NewDistrictPage() {
                             className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 text-sm shadow-sm disabled:opacity-50">
                             {isLoading ? (
                                 <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
+                            ) : paymentMode === 'offline' ? (
+                                <><CheckCircle className="w-5 h-5" /> Create District Secretary</>
                             ) : (
                                 <><CreditCard className="w-5 h-5" /> Generate Payment Link</>
                             )}

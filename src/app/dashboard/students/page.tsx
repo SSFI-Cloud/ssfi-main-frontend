@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 import { toast } from 'react-hot-toast';
 import StudentViewModal from '@/components/dashboard/StudentViewModal';
+import { getAgeCategoryFromDob } from '@/lib/utils/ageCategory';
 
 /* Always use the backend base URL for serving uploaded images */
 const IMG_BASE = 'https://api.ssfiskate.com';
@@ -505,7 +506,7 @@ export default function StudentsPage() {
                                 </th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Category</th>
                                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Club</th>
-                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">Age</th>
+                                <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">Age Group</th>
                                 <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">Status</th>
                                 <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">Actions</th>
                             </tr>
@@ -584,9 +585,11 @@ export default function StudentsPage() {
                                         )}
                                         <p className="text-xs text-gray-500">{student.district_name}</p>
                                     </td>
-                                    {/* Age */}
+                                    {/* Age Group (Jan-1 cutoff — U-6, U-10, Seniors, …) */}
                                     <td className="px-4 py-3 text-center">
-                                        <span className="text-gray-900 font-medium">{calculateAge(student.dob)}</span>
+                                        <span className="inline-flex items-center px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-semibold rounded-full">
+                                            {getAgeCategoryFromDob(student.dob)}
+                                        </span>
                                     </td>
                                     {/* Status */}
                                     <td className="px-4 py-3 text-center">
