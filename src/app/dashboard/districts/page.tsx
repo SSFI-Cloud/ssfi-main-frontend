@@ -73,6 +73,12 @@ export default function DistrictsPage() {
     const [districts, setDistricts] = useState<District[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [stateFilter, setStateFilter] = useState<number | 'all'>('all');
+    // Assigned / Unassigned tab state. "assigned" shows districts with
+    // an approved secretary (the normal case); "unassigned" surfaces
+    // districts that exist (often with skaters registered under them)
+    // but don't yet have a secretary — the federation's to-do list of
+    // appointments. Default 'all' matches historical behaviour.
+    const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
     const [sortField, setSortField] = useState<keyof District>('district_name');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
     const [currentPage, setCurrentPage] = useState(1);
@@ -346,6 +352,53 @@ export default function DistrictsPage() {
                 {/* ... other stats ... */}
             </div>
 
+            {/* Assigned / Unassigned tab strip.
+                Counts are derived from the currently-loaded page of
+                districts — not the full DB — so they reflect what's
+                visible after any search / state / page filter. Good
+                enough as a quick glance; for a true global count we'd
+                need a separate backend stat. */}
+            {(() => {
+                const totalCount = districts.length;
+                const assignedCount = districts.filter(
+                    (d) => !!d.secretaryName && d.secretaryName !== 'N/A',
+                ).length;
+                const unassignedCount = totalCount - assignedCount;
+                const TabButton = ({
+                    value, label, count,
+                }: { value: typeof assignmentFilter; label: string; count: number }) => (
+                    <button
+                        type="button"
+                        onClick={() => setAssignmentFilter(value)}
+                        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                            assignmentFilter === value
+                                ? value === 'unassigned'
+                                    ? 'bg-white text-amber-600 shadow-sm'
+                                    : 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-900'
+                        }`}
+                    >
+                        {label}
+                        <span className={`px-1.5 py-0.5 rounded-md text-xs ${
+                            assignmentFilter === value
+                                ? value === 'unassigned'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-gray-100 text-gray-700'
+                                : 'bg-gray-200/60 text-gray-600'
+                        }`}>
+                            {count}
+                        </span>
+                    </button>
+                );
+                return (
+                    <div className="inline-flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                        <TabButton value="all" label="All" count={totalCount} />
+                        <TabButton value="assigned" label="Assigned" count={assignedCount} />
+                        <TabButton value="unassigned" label="Unassigned" count={unassignedCount} />
+                    </div>
+                );
+            })()}
+
             {/* Filters */}
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
@@ -452,7 +505,18 @@ export default function DistrictsPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                districts.map((district, index) => (
+                                districts
+                                    // Client-side narrowing on the already-fetched page. The
+                                    // backend doesn't know about assigned/unassigned so we
+                                    // filter here. A district is "assigned" when a
+                                    // secretaryName came back; "N/A" / empty means no
+                                    // approved secretary is linked.
+                                    .filter((d) => {
+                                        if (assignmentFilter === 'all') return true;
+                                        const hasSecretary = !!d.secretaryName && d.secretaryName !== 'N/A';
+                                        return assignmentFilter === 'assigned' ? hasSecretary : !hasSecretary;
+                                    })
+                                    .map((district, index) => (
                                     <motion.tr
                                         key={district.id}
                                         initial={{ opacity: 0, y: 10 }}
