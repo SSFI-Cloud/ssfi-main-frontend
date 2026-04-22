@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
     ArrowLeft, Save, Loader2, AlertCircle, CheckCircle, MapPin,
-    ImagePlus, X,
+    ImagePlus, X, Shield,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 
@@ -25,6 +25,9 @@ interface FormData {
     code: string;
     stateId: string;
     logo: string;
+    // Activate / deactivate toggle. Hides the district from public lists
+    // without touching child records.
+    isActive: boolean;
 }
 
 export default function EditDistrictPage() {
@@ -36,7 +39,7 @@ export default function EditDistrictPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
-    const [form, setForm] = useState<FormData>({ name: '', code: '', stateId: '', logo: '' });
+    const [form, setForm] = useState<FormData>({ name: '', code: '', stateId: '', logo: '', isActive: true });
     const [states, setStates] = useState<any[]>([]);
 
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -71,6 +74,9 @@ export default function EditDistrictPage() {
                     code: d.code || '',
                     stateId: parentStateId ? String(parentStateId) : '',
                     logo: '',
+                    // Defaults to true if omitted so we never accidentally
+                    // deactivate a district on save.
+                    isActive: d.isActive !== false,
                 });
                 if (d.logo) setLogoPreview(d.logo);
                 setStates(Array.isArray(st) ? st : []);
@@ -82,7 +88,7 @@ export default function EditDistrictPage() {
         })();
     }, [id]);
 
-    const set = (field: keyof FormData, value: string) =>
+    const set = <K extends keyof FormData>(field: K, value: FormData[K]) =>
         setForm((prev) => ({ ...prev, [field]: value }));
 
     const onLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,6 +116,7 @@ export default function EditDistrictPage() {
                 name: form.name,
                 code: form.code,
                 stateId: form.stateId ? Number(form.stateId) : undefined,
+                isActive: form.isActive,
             };
             if (form.logo) payload.logo = form.logo;
 
@@ -191,6 +198,37 @@ export default function EditDistrictPage() {
                             <FilePicker preview={logoPreview} onPick={() => logoRef.current?.click()} onClear={() => { setLogoPreview(null); set('logo', ''); }} />
                             <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={onLogo} />
                         </div>
+                    </div>
+                </section>
+
+                {/* Status toggle. A deactivated district is hidden from the
+                    public /locations/.../districts feed (clubs / students
+                    under it are preserved — only the listing is hidden). */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                    <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${form.isActive ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'}`}>
+                            <Shield className="w-4 h-4 text-white" />
+                        </div>
+                        <h2 className="font-semibold text-gray-900 text-sm">Status</h2>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-900">District is {form.isActive ? 'Active' : 'Inactive'}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {form.isActive
+                                    ? 'Visible in public listings and registration dropdowns.'
+                                    : 'Hidden from public listings. Existing clubs and students under this district are preserved and can still log in.'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => set('isActive', !form.isActive)}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${form.isActive ? 'bg-emerald-600' : 'bg-gray-300'}`}
+                            role="switch"
+                            aria-checked={form.isActive}
+                        >
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${form.isActive ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
                     </div>
                 </section>
 

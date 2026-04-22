@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
     ArrowLeft, Save, Loader2, AlertCircle, CheckCircle, MapPin,
-    ImagePlus, X, Globe, Crown,
+    ImagePlus, X, Globe, Crown, Shield,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 
@@ -32,6 +32,9 @@ interface FormData {
     // when the admin hasn't replaced the file yet.
     logo: string;
     presidentPhoto: string;
+    // Activate / deactivate toggle. Hides the state from public lists
+    // without touching any child records.
+    isActive: boolean;
 }
 
 export default function EditStatePage() {
@@ -46,6 +49,7 @@ export default function EditStatePage() {
     const [form, setForm] = useState<FormData>({
         name: '', code: '', website: '',
         presidentName: '', logo: '', presidentPhoto: '',
+        isActive: true,
     });
 
     // Previews — either a freshly-picked base64 data URI, or the URL the
@@ -75,6 +79,10 @@ export default function EditStatePage() {
                     presidentName: s.presidentName || '',
                     logo: '',          // only send if admin picks a new file
                     presidentPhoto: '', // same
+                    // isActive defaults to true; fall back if the response
+                    // omits the key so we never accidentally deactivate
+                    // a state on save.
+                    isActive: s.isActive !== false,
                 });
                 if (s.logo) setLogoPreview(s.logo);
                 if (s.presidentPhoto) setPresidentPreview(s.presidentPhoto);
@@ -86,7 +94,7 @@ export default function EditStatePage() {
         })();
     }, [id]);
 
-    const set = (field: keyof FormData, value: string) =>
+    const set = <K extends keyof FormData>(field: K, value: FormData[K]) =>
         setForm((prev) => ({ ...prev, [field]: value }));
 
     // Base64 encode the picked file. 5 MB cap so we don't blow past Railway's
@@ -118,11 +126,12 @@ export default function EditStatePage() {
         try {
             // Only send the fields we actually touched. Sending an empty
             // string for logo would wipe a perfectly good existing logo.
-            const payload: Record<string, string> = {
+            const payload: Record<string, any> = {
                 name: form.name,
                 code: form.code,
                 website: form.website,
                 presidentName: form.presidentName,
+                isActive: form.isActive,
             };
             if (form.logo) payload.logo = form.logo;
             if (form.presidentPhoto) payload.presidentPhoto = form.presidentPhoto;
@@ -222,6 +231,37 @@ export default function EditStatePage() {
                             <FilePicker preview={presidentPreview} onPick={() => presidentRef.current?.click()} onClear={() => { setPresidentPreview(null); set('presidentPhoto', ''); }} />
                             <input ref={presidentRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e, 'presidentPhoto', setPresidentPreview)} />
                         </div>
+                    </div>
+                </section>
+
+                {/* Status toggle. A deactivated state is hidden from the
+                    public /locations/states feed (child districts / clubs /
+                    students are NOT touched — only the listing is hidden). */}
+                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                    <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${form.isActive ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-gray-400 to-gray-500'}`}>
+                            <Shield className="w-4 h-4 text-white" />
+                        </div>
+                        <h2 className="font-semibold text-gray-900 text-sm">Status</h2>
+                    </div>
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-gray-900">State is {form.isActive ? 'Active' : 'Inactive'}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {form.isActive
+                                    ? 'Visible in public listings and registration dropdowns.'
+                                    : 'Hidden from public listings. Existing districts, clubs, and students under this state are preserved and can still log in.'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => set('isActive', !form.isActive)}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${form.isActive ? 'bg-emerald-600' : 'bg-gray-300'}`}
+                            role="switch"
+                            aria-checked={form.isActive}
+                        >
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${form.isActive ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
                     </div>
                 </section>
 
