@@ -62,13 +62,14 @@ export default function EditStatePage() {
             try {
                 const res = await api.get(`/states/${id}`);
                 // Backend wraps the state in { status, data: { state: {...} } }
-                // so we have to unwrap twice. The earlier `res.data?.data ??
-                // res.data` left `s` as `{ state: ... }` and every field
-                // came through undefined.
+                // so we have to unwrap twice. Also: stateService.getStateById
+                // intentionally renames `name` → `state_name` in its response
+                // (for legacy reasons — other list endpoints return `name`),
+                // so we read either shape to be safe.
                 const payload = res.data?.data ?? res.data;
                 const s = payload?.state ?? payload ?? {};
                 setForm({
-                    name: s.name || '',
+                    name: s.state_name || s.name || '',
                     code: s.code || '',
                     website: s.website || '',
                     presidentName: s.presidentName || '',

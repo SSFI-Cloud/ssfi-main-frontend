@@ -52,8 +52,10 @@ export default function EditDistrictPage() {
                     api.get('/locations/states'),
                 ]);
                 // Backend wraps the district in { status, data: { district: {...} } }
-                // — earlier code stopped one level too shallow and every
-                // field came through undefined.
+                // AND renames name → district_name, stateId → state_id on the
+                // way out (see districtService.getDistrictById). Accept both
+                // shapes so a future refactor of the service doesn't break
+                // this page silently.
                 const dPayload = districtRes.data?.data ?? districtRes.data;
                 const d = dPayload?.district ?? dPayload ?? {};
                 // /locations/states returns a bare array under data (no
@@ -63,10 +65,11 @@ export default function EditDistrictPage() {
                 const st = Array.isArray(stPayload)
                     ? stPayload
                     : (stPayload?.states ?? []);
+                const parentStateId = d.state_id ?? d.stateId;
                 setForm({
-                    name: d.name || '',
+                    name: d.district_name || d.name || '',
                     code: d.code || '',
-                    stateId: d.stateId ? String(d.stateId) : '',
+                    stateId: parentStateId ? String(parentStateId) : '',
                     logo: '',
                 });
                 if (d.logo) setLogoPreview(d.logo);
