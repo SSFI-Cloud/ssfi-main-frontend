@@ -16,7 +16,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
     ArrowLeft, Save, Loader2, AlertCircle, CheckCircle, MapPin,
-    ImagePlus, X, Shield,
+    ImagePlus, X, Shield, User, ChevronDown, ChevronUp, Mail, Phone,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 
@@ -30,6 +30,24 @@ interface FormData {
     isActive: boolean;
 }
 
+// Secretary edit form. These fields live on DistrictSecretary (a separate
+// row linked by districtId), not on the District row itself — they save
+// via PUT /district-secretaries/:id rather than PUT /districts/:id.
+interface SecretaryFormData {
+    id: string | null;
+    name: string;
+    gender: string;
+    email: string;
+    phone: string;
+    aadhaarNumber: string;
+    associationName: string;
+    residentialAddress: string;
+    identityProof: string;
+    profilePhoto: string;
+    logo: string;
+    associationRegistrationCopy: string;
+}
+
 export default function EditDistrictPage() {
     const { id } = useParams();
     const router = useRouter();
@@ -40,6 +58,23 @@ export default function EditDistrictPage() {
     const [success, setSuccess] = useState(false);
 
     const [form, setForm] = useState<FormData>({ name: '', code: '', stateId: '', logo: '', isActive: true });
+
+    // Secretary edit state — collapsed by default.
+    const [secretaryOpen, setSecretaryOpen] = useState(false);
+    const [secretary, setSecretary] = useState<SecretaryFormData>({
+        id: null, name: '', gender: 'MALE', email: '', phone: '',
+        aadhaarNumber: '', associationName: '', residentialAddress: '',
+        identityProof: '', profilePhoto: '', logo: '',
+        associationRegistrationCopy: '',
+    });
+    const [secretaryProfilePreview, setSecretaryProfilePreview] = useState<string | null>(null);
+    const [secretaryIdProofPreview, setSecretaryIdProofPreview] = useState<string | null>(null);
+    const [secretaryLogoPreview, setSecretaryLogoPreview] = useState<string | null>(null);
+    const [secretaryRegCopyPreview, setSecretaryRegCopyPreview] = useState<string | null>(null);
+    const secretaryProfileRef = useRef<HTMLInputElement>(null);
+    const secretaryIdProofRef = useRef<HTMLInputElement>(null);
+    const secretaryLogoRef = useRef<HTMLInputElement>(null);
+    const secretaryRegCopyRef = useRef<HTMLInputElement>(null);
     const [states, setStates] = useState<any[]>([]);
 
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -80,6 +115,30 @@ export default function EditDistrictPage() {
                 });
                 if (d.logo) setLogoPreview(d.logo);
                 setStates(Array.isArray(st) ? st : []);
+
+                // Prime the Secretary section from the linked
+                // DistrictSecretary row (if any).
+                if (d.secretary) {
+                    const sec = d.secretary;
+                    setSecretary({
+                        id: sec.id || null,
+                        name: sec.name || '',
+                        gender: sec.gender || 'MALE',
+                        email: sec.email || '',
+                        phone: sec.phone || '',
+                        aadhaarNumber: sec.aadhaarNumber || '',
+                        associationName: sec.associationName || '',
+                        residentialAddress: sec.residentialAddress || '',
+                        identityProof: '',
+                        profilePhoto: '',
+                        logo: '',
+                        associationRegistrationCopy: '',
+                    });
+                    if (sec.profilePhoto) setSecretaryProfilePreview(sec.profilePhoto);
+                    if (sec.identityProof) setSecretaryIdProofPreview(sec.identityProof);
+                    if (sec.logo) setSecretaryLogoPreview(sec.logo);
+                    if (sec.associationRegistrationCopy) setSecretaryRegCopyPreview(sec.associationRegistrationCopy);
+                }
             } catch (err: any) {
                 setError(err?.response?.data?.message || 'Failed to load district');
             } finally {
@@ -90,6 +149,29 @@ export default function EditDistrictPage() {
 
     const set = <K extends keyof FormData>(field: K, value: FormData[K]) =>
         setForm((prev) => ({ ...prev, [field]: value }));
+
+    const setSec = <K extends keyof SecretaryFormData>(field: K, value: SecretaryFormData[K]) =>
+        setSecretary((prev) => ({ ...prev, [field]: value }));
+
+    const onSecretaryFile = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        field: 'identityProof' | 'profilePhoto' | 'logo' | 'associationRegistrationCopy',
+        setPreview: (v: string | null) => void,
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            setError('File must be smaller than 5 MB');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const b64 = reader.result as string;
+            setSec(field, b64);
+            setPreview(b64);
+        };
+        reader.readAsDataURL(file);
+    };
 
     const onLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -121,6 +203,27 @@ export default function EditDistrictPage() {
             if (form.logo) payload.logo = form.logo;
 
             await api.put(`/districts/${id}`, payload);
+
+            // If the secretary section has a target id, persist its edits
+            // too. Districts without an approved secretary skip this leg.
+            if (secretary.id) {
+                const secPayload: Record<string, any> = {
+                    name: secretary.name,
+                    gender: secretary.gender,
+                    email: secretary.email,
+                    phone: secretary.phone,
+                    aadhaarNumber: secretary.aadhaarNumber || null,
+                    associationName: secretary.associationName || null,
+                    residentialAddress: secretary.residentialAddress,
+                };
+                if (secretary.identityProof) secPayload.identityProof = secretary.identityProof;
+                if (secretary.profilePhoto) secPayload.profilePhoto = secretary.profilePhoto;
+                if (secretary.logo) secPayload.logo = secretary.logo;
+                if (secretary.associationRegistrationCopy) secPayload.associationRegistrationCopy = secretary.associationRegistrationCopy;
+
+                await api.put(`/district-secretaries/${secretary.id}`, secPayload);
+            }
+
             setSuccess(true);
             setTimeout(() => router.push('/dashboard/districts'), 1200);
         } catch (err: any) {
@@ -231,6 +334,98 @@ export default function EditDistrictPage() {
                         </button>
                     </div>
                 </section>
+
+                {/* Collapsible Secretary section — edits DistrictSecretary
+                    row via PUT /district-secretaries/:id. Hidden when the
+                    district has no secretary linked. */}
+                {secretary.id && (
+                    <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={() => setSecretaryOpen((v) => !v)}
+                            className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center">
+                                    <User className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="text-left">
+                                    <h2 className="font-semibold text-gray-900 text-sm">Secretary details</h2>
+                                    <p className="text-xs text-gray-500">{secretary.name || '—'} · {secretary.email || 'no email'}</p>
+                                </div>
+                            </div>
+                            {secretaryOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                        </button>
+
+                        {secretaryOpen && (
+                            <div className="p-5 border-t border-gray-100 space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className={labelCls}>Full Name *</label>
+                                        <input className={inputCls} value={secretary.name} onChange={(e) => setSec('name', e.target.value)} required />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Gender *</label>
+                                        <select className={inputCls} value={secretary.gender} onChange={(e) => setSec('gender', e.target.value)}>
+                                            <option value="MALE">Male</option>
+                                            <option value="FEMALE">Female</option>
+                                            <option value="OTHER">Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Email *</label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <input type="email" className={`${inputCls} pl-9`} value={secretary.email} onChange={(e) => setSec('email', e.target.value)} required />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Phone *</label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <input type="tel" className={`${inputCls} pl-9`} value={secretary.phone} onChange={(e) => setSec('phone', e.target.value)} required />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Aadhaar Number</label>
+                                        <input className={inputCls} value={secretary.aadhaarNumber} onChange={(e) => setSec('aadhaarNumber', e.target.value)} placeholder="12-digit" />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Association Name</label>
+                                        <input className={inputCls} value={secretary.associationName} onChange={(e) => setSec('associationName', e.target.value)} />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className={labelCls}>Residential Address *</label>
+                                        <textarea className={`${inputCls} resize-none`} rows={2} value={secretary.residentialAddress} onChange={(e) => setSec('residentialAddress', e.target.value)} required />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                    <div>
+                                        <label className={labelCls}>Profile Photo</label>
+                                        <FilePicker preview={secretaryProfilePreview} onPick={() => secretaryProfileRef.current?.click()} onClear={() => { setSecretaryProfilePreview(null); setSec('profilePhoto', ''); }} />
+                                        <input ref={secretaryProfileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onSecretaryFile(e, 'profilePhoto', setSecretaryProfilePreview)} />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Identity Proof</label>
+                                        <FilePicker preview={secretaryIdProofPreview} onPick={() => secretaryIdProofRef.current?.click()} onClear={() => { setSecretaryIdProofPreview(null); setSec('identityProof', ''); }} />
+                                        <input ref={secretaryIdProofRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onSecretaryFile(e, 'identityProof', setSecretaryIdProofPreview)} />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Association Logo</label>
+                                        <FilePicker preview={secretaryLogoPreview} onPick={() => secretaryLogoRef.current?.click()} onClear={() => { setSecretaryLogoPreview(null); setSec('logo', ''); }} />
+                                        <input ref={secretaryLogoRef} type="file" accept="image/*" className="hidden" onChange={(e) => onSecretaryFile(e, 'logo', setSecretaryLogoPreview)} />
+                                    </div>
+                                    <div>
+                                        <label className={labelCls}>Association Registration Copy</label>
+                                        <FilePicker preview={secretaryRegCopyPreview} onPick={() => secretaryRegCopyRef.current?.click()} onClear={() => { setSecretaryRegCopyPreview(null); setSec('associationRegistrationCopy', ''); }} />
+                                        <input ref={secretaryRegCopyRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onSecretaryFile(e, 'associationRegistrationCopy', setSecretaryRegCopyPreview)} />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </section>
+                )}
 
                 <div className="flex items-center gap-3 pt-2">
                     <button type="submit" disabled={isSaving || success}
