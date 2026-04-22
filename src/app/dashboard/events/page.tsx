@@ -94,7 +94,7 @@ export default function EventsPage() {
     const [viewingEvent, setViewingEvent] = useState<Event | null>(null);
     const [deletingEvent, setDeletingEvent] = useState<Event | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [stats, setStats] = useState({
         totalEvents: 0,
@@ -134,7 +134,7 @@ export default function EventsPage() {
             if (token) fetchEvents();
         }, 500);
         return () => clearTimeout(timer);
-    }, [token, currentPage, searchQuery, levelFilter, statusFilter, sortField, sortOrder]);
+    }, [token, currentPage, searchQuery, levelFilter, statusFilter, sortField, sortOrder, itemsPerPage]);
 
 
     const handleSort = (field: string) => {

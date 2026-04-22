@@ -81,7 +81,7 @@ export default function StatesPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingState, setEditingState] = useState<State | null>(null);
     const [selectedStates, setSelectedStates] = useState<number[]>([]);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
     const [registeredOnly, setRegisteredOnly] = useState(true);
@@ -178,7 +178,7 @@ export default function StatesPage() {
             }
         }, 500);
         return () => clearTimeout(timer);
-    }, [token, currentPage, searchQuery, sortField, sortOrder, registeredOnly]);
+    }, [token, currentPage, searchQuery, sortField, sortOrder, registeredOnly, itemsPerPage]);
 
 
     const handleSort = (field: keyof State) => {
@@ -531,29 +531,39 @@ export default function StatesPage() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-                        <p className="text-sm text-gray-500">
-                            Page {currentPage} of {totalPages}
-                        </p>
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                        <p className="text-sm text-gray-500">Page {currentPage} of {Math.max(totalPages, 1)}</p>
                         <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                            <span className="text-xs text-gray-500">Rows per page</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                             >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                            </select>
                         </div>
                     </div>
-                )}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage >= totalPages}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* View State Modal */}

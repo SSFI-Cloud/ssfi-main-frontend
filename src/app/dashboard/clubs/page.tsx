@@ -57,7 +57,7 @@ export default function ClubsPage() {
     const [viewLoading, setViewLoading] = useState(false);
     const [resendLoading, setResendLoading] = useState<number | null>(null);
 
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const fetchClubs = async () => {
         setIsLoading(true);
@@ -117,7 +117,7 @@ export default function ClubsPage() {
 
     useEffect(() => {
         if (token) fetchClubs();
-    }, [token, currentPage, searchQuery, stateFilter, verificationFilter, sortField, sortOrder]);
+    }, [token, currentPage, searchQuery, stateFilter, verificationFilter, sortField, sortOrder, itemsPerPage]);
 
     const handleSort = (field: keyof Club) => {
         if (sortField === field) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -390,21 +390,33 @@ export default function ClubsPage() {
                     </table>
                 </div>
 
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-                        <p className="text-sm text-gray-500">Page {currentPage} of {totalPages}</p>
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                        <p className="text-sm text-gray-500">Page {currentPage} of {Math.max(totalPages, 1)}</p>
                         <div className="flex items-center gap-2">
-                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-50">
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-50">
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
+                            <span className="text-xs text-gray-500">Rows per page</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                            >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                            </select>
                         </div>
                     </div>
-                )}
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-50">
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-50">
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* View Modal */}

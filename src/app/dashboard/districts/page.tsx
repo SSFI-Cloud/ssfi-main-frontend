@@ -85,19 +85,26 @@ export default function DistrictsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Stats
+    // Stats — includes assigned/unassigned counts for the tab badges,
+    // returned by the backend against the full filtered dataset (not
+    // just the current page).
     const [stats, setStats] = useState({
         totalDistricts: 0,
         totalClubs: 0,
         totalSkaters: 0,
-        totalEvents: 0
+        totalEvents: 0,
+        assignedCount: 0,
+        unassignedCount: 0,
     });
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingDistrict, setEditingDistrict] = useState<District | null>(null);
     const [selectedDistricts, setSelectedDistricts] = useState<number[]>([]);
     const [stateOptions, setStateOptions] = useState<StateOption[]>([]);
-    const itemsPerPage = 10;
+    // User-adjustable rows per page. Session-only — each fresh load of
+    // the page starts at 10. A persistent preference would live in
+    // localStorage, but per the current ask we keep it simple.
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
     // View modal
@@ -186,11 +193,17 @@ export default function DistrictsPage() {
                 if (backendStats) {
                     setStats(backendStats);
                 } else {
+                    // Fallback when the backend didn't send stats. Counts
+                    // derived from the current page, so Assigned/Unassigned
+                    // tabs will be slightly off until stats come through.
+                    const assigned = data.filter((d: any) => !!d.secretaryName && d.secretaryName !== 'N/A').length;
                     const currentStats = {
                         totalDistricts: meta.total,
                         totalClubs: data.reduce((acc: number, d: any) => acc + d.clubsCount, 0),
                         totalSkaters: data.reduce((acc: number, d: any) => acc + d.skatersCount, 0),
                         totalEvents: data.reduce((acc: number, d: any) => acc + d.eventsCount, 0),
+                        assignedCount: assigned,
+                        unassignedCount: data.length - assigned,
                     };
                     setStats(currentStats);
                 }
@@ -209,7 +222,7 @@ export default function DistrictsPage() {
         } else {
             setIsLoading(false);
         }
-    }, [token, currentPage, searchQuery, stateFilter, sortField, sortOrder]);
+    }, [token, currentPage, searchQuery, stateFilter, sortField, sortOrder, itemsPerPage]);
 
 
     const handleSort = (field: keyof District) => {
@@ -353,17 +366,14 @@ export default function DistrictsPage() {
             </div>
 
             {/* Assigned / Unassigned tab strip.
-                Counts are derived from the currently-loaded page of
-                districts — not the full DB — so they reflect what's
-                visible after any search / state / page filter. Good
-                enough as a quick glance; for a true global count we'd
-                need a separate backend stat. */}
+                Counts come from the backend stats block, which counts
+                against the full filtered dataset — so the badges reflect
+                every row that matches the current search/state filter,
+                not just the 10/25/50 rows on the current page. */}
             {(() => {
-                const totalCount = districts.length;
-                const assignedCount = districts.filter(
-                    (d) => !!d.secretaryName && d.secretaryName !== 'N/A',
-                ).length;
-                const unassignedCount = totalCount - assignedCount;
+                const totalCount = stats.totalDistricts;
+                const assignedCount = stats.assignedCount;
+                const unassignedCount = stats.unassignedCount;
                 const TabButton = ({
                     value, label, count,
                 }: { value: typeof assignmentFilter; label: string; count: number }) => (
@@ -620,30 +630,46 @@ export default function DistrictsPage() {
                     </table>
                 </div>
 
-                {/* Pagination - Simplified for now, backend pagination available */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+                {/* Pagination strip. Always rendered (even on a single
+                    page) so the rows-per-page selector stays reachable. */}
+                <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
                         <p className="text-sm text-gray-500">
-                            Page {currentPage} of {totalPages}
+                            Page {currentPage} of {Math.max(totalPages, 1)}
                         </p>
                         <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                            <span className="text-xs text-gray-500">Rows per page</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                             >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                            </select>
                         </div>
                     </div>
-                )}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage >= totalPages}
+                            className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* View District Modal */}

@@ -43,12 +43,12 @@ export default function EventApprovalsPage() {
     const [rejectReason, setRejectReason] = useState('');
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [selectedForReject, setSelectedForReject] = useState<Event | null>(null);
-    const itemsPerPage = 10;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Fetch pending events on mount
     useEffect(() => {
         fetchPendingEvents({ page: currentPage, limit: itemsPerPage });
-    }, [fetchPendingEvents, currentPage]);
+    }, [fetchPendingEvents, currentPage, itemsPerPage]);
 
     // Filter events
     const filteredEvents = data?.events.filter(event =>
@@ -220,17 +220,29 @@ export default function EventApprovalsPage() {
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Rows per page</span>
+                    <select
+                        value={itemsPerPage}
+                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-50">
                         <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="text-gray-500 text-sm px-3">Page {currentPage} of {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-50">
+                    <span className="text-gray-500 text-sm px-3">Page {currentPage} of {Math.max(totalPages, 1)}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="p-2 bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 disabled:opacity-50">
                         <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
-            )}
+            </div>
 
             {/* View Detail Modal */}
             <AnimatePresence>
