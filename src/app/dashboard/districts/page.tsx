@@ -510,13 +510,17 @@ export default function DistrictsPage() {
                                                     <Eye className="w-4 h-4" />
                                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">View Details</span>
                                                 </button>
-                                                <button
-                                                    onClick={() => setEditingDistrict(district)}
+                                                {/* Edit now navigates to the dedicated /districts/[id]/edit page.
+                                                    Parallel to the states page change — the inline modal below
+                                                    still exists for backwards compat but is no longer reachable
+                                                    via this button. */}
+                                                <Link
+                                                    href={`/dashboard/districts/${district.id}/edit`}
                                                     className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-emerald-600 transition-colors group relative"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
                                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit</span>
-                                                </button>
+                                                </Link>
                                                 {user?.role === 'GLOBAL_ADMIN' && (
                                                 <>
                                                 <button

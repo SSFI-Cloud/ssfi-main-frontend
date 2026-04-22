@@ -491,13 +491,17 @@ export default function StatesPage() {
                                                     <Eye className="w-4 h-4" />
                                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">View Details</span>
                                                 </button>
-                                                <button
-                                                    onClick={() => setEditingState(state)}
+                                                {/* Edit now navigates to the dedicated /states/[id]/edit page
+                                                    instead of popping the modal that used to live below. The
+                                                    dedicated page is deep-linkable and has room for file previews
+                                                    that the cramped modal didn't. */}
+                                                <Link
+                                                    href={`/dashboard/states/${state.id}/edit`}
                                                     className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-emerald-600 transition-colors group relative"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
                                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit</span>
-                                                </button>
+                                                </Link>
                                                 {user?.role === 'GLOBAL_ADMIN' && (
                                                 <>
                                                 <button
