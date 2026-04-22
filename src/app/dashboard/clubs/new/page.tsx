@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowLeft, Users, User, Phone, Mail, MapPin, Hash,
     Calendar, Loader2, CheckCircle, AlertCircle, Upload,
-    CreditCard, Copy, Check, X,
+    CreditCard, Copy, Check, X, UserCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -49,6 +49,10 @@ export default function NewClubPage() {
         email: '',
         clubLogo: '',
         termsAccepted: false,
+        // Nominee (insurance / emergency contact)
+        nomineeName: '',
+        nomineeAge: '',
+        nomineeRelation: '',
     });
 
     // Fetch states
@@ -97,6 +101,9 @@ export default function NewClubPage() {
         if (!formData.phone.trim()) errs.phone = 'Phone number is required';
         else if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) errs.phone = 'Enter valid 10-digit mobile';
         if (!formData.clubLogo) errs.clubLogo = 'Club logo is required';
+        if (!formData.nomineeName.trim()) errs.nomineeName = 'Nominee name is required';
+        if (!formData.nomineeAge || Number(formData.nomineeAge) < 1 || Number(formData.nomineeAge) > 120) errs.nomineeAge = 'Enter a valid age (1-120)';
+        if (!formData.nomineeRelation) errs.nomineeRelation = 'Please select a relation';
         if (!formData.termsAccepted) errs.termsAccepted = 'You must accept the terms';
         setFieldErrors(errs);
         return Object.keys(errs).length === 0;
@@ -123,6 +130,9 @@ export default function NewClubPage() {
                 logo: formData.clubLogo,
                 clubLogo: formData.clubLogo,
                 code: formData.registrationNumber.trim().toUpperCase(),
+                nomineeName: formData.nomineeName.trim(),
+                nomineeAge: Number(formData.nomineeAge),
+                nomineeRelation: formData.nomineeRelation,
                 termsAccepted: true,
             };
 
@@ -317,6 +327,49 @@ export default function NewClubPage() {
                                         onChange={e => updateField('email', e.target.value)}
                                         placeholder="club@email.com" className={`${inputClass('email')} pl-9`} />
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Nominee Details */}
+                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2 bg-gradient-to-r from-emerald-50 to-green-50">
+                            <UserCheck className="w-5 h-5 text-emerald-600" />
+                            <h2 className="font-semibold text-gray-900">Nominee Details</h2>
+                            <span className="text-xs text-gray-400 ml-auto">For insurance / emergency contact</span>
+                        </div>
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className={labelClass}>Nominee Name *</label>
+                                <input type="text" value={formData.nomineeName}
+                                    onChange={e => updateField('nomineeName', e.target.value)}
+                                    placeholder="Full name of nominee" className={inputClass('nomineeName')} />
+                                <FieldError field="nomineeName" />
+                            </div>
+                            <div>
+                                <label className={labelClass}>Nominee Age *</label>
+                                <input type="number" min="1" max="120" value={formData.nomineeAge}
+                                    onChange={e => updateField('nomineeAge', e.target.value.replace(/\D/g, '').slice(0, 3))}
+                                    placeholder="Age in years" className={inputClass('nomineeAge')} />
+                                <FieldError field="nomineeAge" />
+                            </div>
+                            <div>
+                                <label className={labelClass}>Relation *</label>
+                                <select value={formData.nomineeRelation}
+                                    onChange={e => updateField('nomineeRelation', e.target.value)}
+                                    className={inputClass('nomineeRelation')}>
+                                    <option value="">Select relation</option>
+                                    <option value="Father">Father</option>
+                                    <option value="Mother">Mother</option>
+                                    <option value="Spouse">Spouse</option>
+                                    <option value="Son">Son</option>
+                                    <option value="Daughter">Daughter</option>
+                                    <option value="Brother">Brother</option>
+                                    <option value="Sister">Sister</option>
+                                    <option value="Guardian">Guardian</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <FieldError field="nomineeRelation" />
                             </div>
                         </div>
                     </div>

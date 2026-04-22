@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
     ArrowLeft, Save, Loader2, AlertCircle, CheckCircle,
-    Shield, MapPin, Phone, Mail, User, Calendar, Hash, Globe, FileText, Upload, X
+    Shield, MapPin, Phone, Mail, User, Calendar, Hash, Globe, FileText, Upload, X, UserCheck
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -29,6 +29,10 @@ interface ClubData {
     registrationNumber: string;
     website: string;
     logo: string;
+    // Nominee (insurance / emergency contact)
+    nomineeName: string;
+    nomineeAge: number | string | null;
+    nomineeRelation: string;
 }
 
 export default function EditClubPage() {
@@ -68,6 +72,9 @@ export default function EditClubPage() {
                     registrationNumber: club.registrationNumber || club.registration_number || '',
                     website: club.website || '',
                     logo: club.logo || '',
+                    nomineeName: club.nomineeName || '',
+                    nomineeAge: club.nomineeAge ?? '',
+                    nomineeRelation: club.nomineeRelation || '',
                 });
                 if (club.logo) {
                     const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || '';
@@ -242,6 +249,66 @@ export default function EditClubPage() {
                                     {districtsList.map((d: any) => (
                                         <option key={d.id} value={d.id}>{d.name}</option>
                                     ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Nominee Details (insurance / emergency contact) */}
+                    <div className="pt-2 border-t border-gray-100">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <UserCheck className="w-4 h-4 text-emerald-600" /> Nominee Details
+                            <span className="text-xs font-normal text-gray-400 ml-auto">For insurance / emergency contact</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nominee Name</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><User className="w-4 h-4" /></span>
+                                    <input
+                                        type="text"
+                                        name="nomineeName"
+                                        value={form.nomineeName ?? ''}
+                                        onChange={handleChange}
+                                        placeholder="Full name of nominee"
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nominee Age</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Calendar className="w-4 h-4" /></span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={120}
+                                        name="nomineeAge"
+                                        value={form.nomineeAge ?? ''}
+                                        onChange={handleChange}
+                                        placeholder="Age"
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Relation</label>
+                                <select
+                                    name="nomineeRelation"
+                                    value={form.nomineeRelation ?? ''}
+                                    onChange={e => setForm(prev => ({ ...prev, nomineeRelation: e.target.value }))}
+                                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                >
+                                    <option value="">Select relation</option>
+                                    <option value="Father">Father</option>
+                                    <option value="Mother">Mother</option>
+                                    <option value="Spouse">Spouse</option>
+                                    <option value="Son">Son</option>
+                                    <option value="Daughter">Daughter</option>
+                                    <option value="Brother">Brother</option>
+                                    <option value="Sister">Sister</option>
+                                    <option value="Guardian">Guardian</option>
+                                    <option value="Other">Other</option>
                                 </select>
                             </div>
                         </div>

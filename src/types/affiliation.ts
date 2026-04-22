@@ -144,6 +144,10 @@ export interface ClubFormData {
   clubLogo: string;
   status: 'ACTIVE' | 'INACTIVE';
   termsAccepted: boolean;
+  // Nominee details (insurance / emergency contact)
+  nomineeName: string;
+  nomineeAge: number;
+  nomineeRelation: string;
 }
 
 // API Response Types

@@ -135,6 +135,13 @@ export default function SettingsPage() {
     const [rpSaving, setRpSaving] = useState(false);
     const [showSecrets, setShowSecrets] = useState(false);
 
+    // Club-owner self-service: nominee details for their club. Club table has
+    // its own nomineeName / nomineeAge / nomineeRelation columns separate
+    // from the ClubOwner / User profile, so they go through a dedicated
+    // /clubs/my-club endpoint rather than the generic /auth/profile.
+    const [clubForm, setClubForm] = useState({ nomineeName: '', nomineeAge: '' as number | string, nomineeRelation: '' });
+    const [clubSaving, setClubSaving] = useState(false);
+
     const fetchProfile = useCallback(async () => {
         setFetching(true);
         try {
@@ -176,6 +183,48 @@ export default function SettingsPage() {
     }, []);
 
     useEffect(() => { fetchProfile(); }, [fetchProfile]);
+
+    // Load the club owner's own club so we can pre-fill nominee fields.
+    const fetchMyClub = useCallback(async () => {
+        try {
+            const res = await api.get('/clubs/my-club');
+            const club = (res.data as any)?.data?.club || (res.data as any)?.data || res.data;
+            if (club) {
+                setClubForm({
+                    nomineeName: club.nomineeName || '',
+                    nomineeAge: club.nomineeAge ?? '',
+                    nomineeRelation: club.nomineeRelation || '',
+                });
+            }
+        } catch {
+            // not linked to a club yet — leave form empty
+        }
+    }, []);
+
+    useEffect(() => {
+        if ((fullUser?.role || authUser?.role) === 'CLUB_OWNER') fetchMyClub();
+    }, [fullUser?.role, authUser?.role, fetchMyClub]);
+
+    const handleClubSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setClubSaving(true);
+        setMessage(null);
+        try {
+            const payload: any = {
+                nomineeName: clubForm.nomineeName.trim(),
+                nomineeRelation: clubForm.nomineeRelation,
+            };
+            if (clubForm.nomineeAge !== '' && clubForm.nomineeAge !== null) {
+                payload.nomineeAge = Number(clubForm.nomineeAge);
+            }
+            await api.put('/clubs/my-club', payload);
+            setMessage({ type: 'success', text: 'Club nominee details updated' });
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to update club details' });
+        } finally {
+            setClubSaving(false);
+        }
+    };
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -602,6 +651,68 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                     </>
+                                )}
+
+                                {/* Club-owner: Nominee details for the club
+                                    (insurance / emergency contact). Saves via
+                                    its own /clubs/my-club endpoint — separate
+                                    button so the user doesn't have to re-save
+                                    personal details to update it. */}
+                                {role === 'CLUB_OWNER' && (
+                                    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-5">
+                                        <div className="flex items-start justify-between mb-3 gap-3">
+                                            <div>
+                                                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                                    <Shield className="w-5 h-5 text-emerald-600" /> Club Nominee
+                                                </h2>
+                                                <p className="text-gray-500 text-sm">Insurance / emergency contact for the club. Updates apply to your club record.</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                            <InputField
+                                                label="Nominee Name"
+                                                value={clubForm.nomineeName}
+                                                onChange={(e: any) => setClubForm(p => ({ ...p, nomineeName: e.target.value }))}
+                                                placeholder="Full name"
+                                                icon={User}
+                                            />
+                                            <InputField
+                                                label="Nominee Age"
+                                                value={clubForm.nomineeAge}
+                                                onChange={(e: any) => setClubForm(p => ({ ...p, nomineeAge: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
+                                                type="number"
+                                                placeholder="Age in years"
+                                            />
+                                            <SelectField
+                                                label="Relation"
+                                                value={clubForm.nomineeRelation}
+                                                onChange={(e: any) => setClubForm(p => ({ ...p, nomineeRelation: e.target.value }))}
+                                                options={[
+                                                    { value: '', label: 'Select relation' },
+                                                    { value: 'Father', label: 'Father' },
+                                                    { value: 'Mother', label: 'Mother' },
+                                                    { value: 'Spouse', label: 'Spouse' },
+                                                    { value: 'Son', label: 'Son' },
+                                                    { value: 'Daughter', label: 'Daughter' },
+                                                    { value: 'Brother', label: 'Brother' },
+                                                    { value: 'Sister', label: 'Sister' },
+                                                    { value: 'Guardian', label: 'Guardian' },
+                                                    { value: 'Other', label: 'Other' },
+                                                ]}
+                                            />
+                                        </div>
+                                        <div className="mt-4">
+                                            <button
+                                                type="button"
+                                                onClick={handleClubSave}
+                                                disabled={clubSaving}
+                                                className="px-5 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-40 flex items-center gap-2 transition-all font-medium text-sm"
+                                            >
+                                                {clubSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                                Save Nominee Details
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
 
                                 {/* Address (all roles) */}

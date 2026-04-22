@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { toast } from 'react-hot-toast';
 import {
   Users, User, Mail, Phone, MapPin, Hash,
-  Calendar, Upload, ChevronLeft, Check, Loader2, X, RefreshCw, Shield, Home,
+  Calendar, Upload, ChevronLeft, Check, Loader2, X, RefreshCw, Shield, Home, UserCheck,
 } from 'lucide-react';
 
 import { useClubRegistration } from '@/lib/hooks/useAffiliation';
@@ -34,6 +34,10 @@ const formSchema = z.object({
   clubLogo: z.string().min(1, 'Club logo is required'),
   status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
   termsAccepted: z.boolean().refine((v) => v === true, 'You must accept the terms'),
+  // Nominee (insurance / emergency contact)
+  nomineeName: z.string().min(2, 'Nominee name is required').max(100),
+  nomineeAge: z.coerce.number().min(1, 'Enter a valid age').max(120, 'Enter a valid age'),
+  nomineeRelation: z.string().min(1, 'Please select a relation'),
 });
 type FormData = z.infer<typeof formSchema>;
 type Mode = 'choose' | 'renew' | 'new';
@@ -322,6 +326,43 @@ export default function ClubRegistrationForm() {
                         <input {...register('email')} type="email" placeholder="club@email.com" className={`${inputCls(!!errors.email)} pl-9`} />
                       </div>
                       {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nominee Details */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-teal-500" />
+                    <h2 className="font-semibold text-gray-900">Nominee Details</h2>
+                    <span className="text-xs text-gray-400 ml-auto">For insurance / emergency contact</span>
+                  </div>
+                  <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Nominee Name <span className="text-red-400">*</span></label>
+                      <input {...register('nomineeName')} placeholder="Full name of nominee" className={inputCls(!!errors.nomineeName)} />
+                      {errors.nomineeName && <p className="mt-1 text-xs text-red-500">{errors.nomineeName.message}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Nominee Age <span className="text-red-400">*</span></label>
+                      <input {...register('nomineeAge')} type="number" min="1" max="120" placeholder="Age in years" className={inputCls(!!errors.nomineeAge)} />
+                      {errors.nomineeAge && <p className="mt-1 text-xs text-red-500">{errors.nomineeAge.message}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Relation <span className="text-red-400">*</span></label>
+                      <select {...register('nomineeRelation')} className={inputCls(!!errors.nomineeRelation)}>
+                        <option value="">Select relation</option>
+                        <option value="Father">Father</option>
+                        <option value="Mother">Mother</option>
+                        <option value="Spouse">Spouse</option>
+                        <option value="Son">Son</option>
+                        <option value="Daughter">Daughter</option>
+                        <option value="Brother">Brother</option>
+                        <option value="Sister">Sister</option>
+                        <option value="Guardian">Guardian</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      {errors.nomineeRelation && <p className="mt-1 text-xs text-red-500">{errors.nomineeRelation.message}</p>}
                     </div>
                   </div>
                 </div>
