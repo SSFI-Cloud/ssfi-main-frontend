@@ -305,9 +305,11 @@ export default function EditDistrictPage() {
                             <label className={labelCls}>District Logo</label>
                             <FilePicker preview={logoPreview} onPick={() => logoRef.current?.click()} onClear={() => { setLogoPreview(null); set('logo', ''); }} />
                             <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={onLogo} />
-                            {form.logo && (
+                            {/* Gate on preview, not form.logo — form.logo is
+                                cleared on load so the save doesn't re-upload. */}
+                            {logoPreview && (
                                 <div className="mt-2">
-                                    <DownloadButton url={form.logo} filename={`${form.name || 'district'}-logo`} label="Download current logo" />
+                                    <DownloadButton url={logoPreview} filename={`${form.name || 'district'}-logo`} label="Download current logo" />
                                 </div>
                             )}
                         </div>
@@ -415,9 +417,9 @@ export default function EditDistrictPage() {
                                         <label className={labelCls}>Profile Photo</label>
                                         <FilePicker preview={secretaryProfilePreview} onPick={() => secretaryProfileRef.current?.click()} onClear={() => { setSecretaryProfilePreview(null); setSec('profilePhoto', ''); }} />
                                         <input ref={secretaryProfileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onSecretaryFile(e, 'profilePhoto', setSecretaryProfilePreview)} />
-                                        {secretary.profilePhoto && (
+                                        {secretaryProfilePreview && (
                                             <div className="mt-2">
-                                                <DownloadButton url={secretary.profilePhoto} filename={`${secretary.name || 'secretary'}-photo`} label="Download current" />
+                                                <DownloadButton url={secretaryProfilePreview} filename={`${secretary.name || 'secretary'}-photo`} label="Download current" />
                                             </div>
                                         )}
                                     </div>
@@ -425,9 +427,9 @@ export default function EditDistrictPage() {
                                         <label className={labelCls}>Identity Proof</label>
                                         <FilePicker preview={secretaryIdProofPreview} onPick={() => secretaryIdProofRef.current?.click()} onClear={() => { setSecretaryIdProofPreview(null); setSec('identityProof', ''); }} />
                                         <input ref={secretaryIdProofRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onSecretaryFile(e, 'identityProof', setSecretaryIdProofPreview)} />
-                                        {secretary.identityProof && (
+                                        {secretaryIdProofPreview && (
                                             <div className="mt-2">
-                                                <DownloadButton url={secretary.identityProof} filename={`${secretary.name || 'secretary'}-id-proof`} label="Download current" />
+                                                <DownloadButton url={secretaryIdProofPreview} filename={`${secretary.name || 'secretary'}-id-proof`} label="Download current" />
                                             </div>
                                         )}
                                     </div>
@@ -435,9 +437,9 @@ export default function EditDistrictPage() {
                                         <label className={labelCls}>Association Logo</label>
                                         <FilePicker preview={secretaryLogoPreview} onPick={() => secretaryLogoRef.current?.click()} onClear={() => { setSecretaryLogoPreview(null); setSec('logo', ''); }} />
                                         <input ref={secretaryLogoRef} type="file" accept="image/*" className="hidden" onChange={(e) => onSecretaryFile(e, 'logo', setSecretaryLogoPreview)} />
-                                        {secretary.logo && (
+                                        {secretaryLogoPreview && (
                                             <div className="mt-2">
-                                                <DownloadButton url={secretary.logo} filename={`${secretary.associationName || 'association'}-logo`} label="Download current" />
+                                                <DownloadButton url={secretaryLogoPreview} filename={`${secretary.associationName || 'association'}-logo`} label="Download current" />
                                             </div>
                                         )}
                                     </div>
@@ -445,9 +447,9 @@ export default function EditDistrictPage() {
                                         <label className={labelCls}>Association Registration Copy</label>
                                         <FilePicker preview={secretaryRegCopyPreview} onPick={() => secretaryRegCopyRef.current?.click()} onClear={() => { setSecretaryRegCopyPreview(null); setSec('associationRegistrationCopy', ''); }} />
                                         <input ref={secretaryRegCopyRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onSecretaryFile(e, 'associationRegistrationCopy', setSecretaryRegCopyPreview)} />
-                                        {secretary.associationRegistrationCopy && (
+                                        {secretaryRegCopyPreview && (
                                             <div className="mt-2">
-                                                <DownloadButton url={secretary.associationRegistrationCopy} filename={`${secretary.associationName || 'association'}-registration`} label="Download current" />
+                                                <DownloadButton url={secretaryRegCopyPreview} filename={`${secretary.associationName || 'association'}-registration`} label="Download current" />
                                             </div>
                                         )}
                                     </div>
@@ -474,13 +476,31 @@ export default function EditDistrictPage() {
 }
 
 function FilePicker({ preview, onPick, onClear }: { preview: string | null; onPick: () => void; onClear: () => void }) {
-    if (preview) {
+    // Mirror the state-edit FilePicker: fall back to upload button when the
+    // preview URL fails to load, and always expose an explicit Replace
+    // button so admins aren't stuck with just an X clear.
+    const [broken, setBroken] = useState(false);
+
+    if (preview && !broken) {
         return (
-            <div className="relative inline-block">
-                <img src={preview} alt="" className="h-24 rounded-xl border border-gray-200 object-cover" />
-                <button type="button" onClick={onClear}
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50">
-                    <X className="w-3 h-3 text-gray-600" />
+            <div className="flex items-start gap-3">
+                <div className="relative inline-block">
+                    <img
+                        src={preview}
+                        alt=""
+                        className="h-24 rounded-xl border border-gray-200 object-cover cursor-pointer"
+                        onClick={onPick}
+                        onError={() => setBroken(true)}
+                    />
+                    <button type="button" onClick={onClear}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50">
+                        <X className="w-3 h-3 text-gray-600" />
+                    </button>
+                </div>
+                <button type="button" onClick={onPick}
+                    className="mt-1 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100">
+                    <ImagePlus className="w-3.5 h-3.5" />
+                    Replace
                 </button>
             </div>
         );
@@ -489,7 +509,7 @@ function FilePicker({ preview, onPick, onClear }: { preview: string | null; onPi
         <button type="button" onClick={onPick}
             className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-emerald-400 hover:bg-emerald-50/50">
             <ImagePlus className="w-4 h-4" />
-            Click to upload
+            {broken ? 'Previous file missing — click to upload a new one' : 'Click to upload'}
         </button>
     );
 }
