@@ -211,7 +211,7 @@ export default function ClubsPage() {
                     <button onClick={handleExport} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2">
                         <Download className="w-4 h-4" /> Export{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
                     </button>
-                    {user?.role === 'GLOBAL_ADMIN' && (
+                    {(user?.role === 'GLOBAL_ADMIN' || user?.role === 'STATE_SECRETARY' || user?.role === 'DISTRICT_SECRETARY') && (
                         <Link href="/dashboard/clubs/new" className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 flex items-center gap-2">
                             <Plus className="w-4 h-4" /> Add Club
                         </Link>
@@ -361,21 +361,26 @@ export default function ClubsPage() {
                                                 <Edit2 className="w-4 h-4" />
                                                 <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit</span>
                                             </Link>
+                                            {/* Resend Credentials: admin-only — it resets the club
+                                                owner's password and re-sends welcome. */}
                                             {user?.role === 'GLOBAL_ADMIN' && (
-                                            <>
-                                            <button
-                                                onClick={() => handleResendCredentials(club)}
-                                                disabled={resendLoading === club.id}
-                                                className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
-                                            >
-                                                {resendLoading === club.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
-                                            </button>
-                                            <button onClick={() => handleDelete(club.id)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative">
-                                                <Trash2 className="w-4 h-4" />
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
-                                            </button>
-                                            </>
+                                                <button
+                                                    onClick={() => handleResendCredentials(club)}
+                                                    disabled={resendLoading === club.id}
+                                                    className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
+                                                >
+                                                    {resendLoading === club.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
+                                                </button>
+                                            )}
+                                            {/* Delete: admin, state secretary, or district secretary.
+                                                Backend verifyApprovalScope('club') enforces that a
+                                                secretary can only delete clubs inside their jurisdiction. */}
+                                            {(user?.role === 'GLOBAL_ADMIN' || user?.role === 'STATE_SECRETARY' || user?.role === 'DISTRICT_SECRETARY') && (
+                                                <button onClick={() => handleDelete(club.id)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative">
+                                                    <Trash2 className="w-4 h-4" />
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
+                                                </button>
                                             )}
                                         </div>
                                     </td>

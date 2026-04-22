@@ -254,6 +254,27 @@ export default function StudentsPage() {
         }
     };
 
+    // Delete a student record. Previously the row-level delete button
+    // was decorative — no onClick, no handler. Wired up now so admins /
+    // state secretaries / district secretaries can remove a student.
+    // Backend `verifyApprovalScope('student')` middleware rejects
+    // cross-jurisdiction attempts, so a state sec can't delete a student
+    // outside their state even if the button is visible.
+    const handleDeleteStudent = async (student: Student) => {
+        const confirmed = confirm(
+            `Delete student "${student.name}" (${student.ssfi_id})? ` +
+            `This removes their profile and cannot be undone. Their login account will also be removed.`,
+        );
+        if (!confirmed) return;
+        try {
+            await api.delete(`/students/${student.id}`);
+            toast.success(`Deleted ${student.name}`);
+            fetchStudents();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? 'Failed to delete student');
+        }
+    };
+
     const [isExporting, setIsExporting] = useState(false);
 
     const buildCsv = (rows: Student[]) => {
@@ -329,7 +350,7 @@ export default function StudentsPage() {
                         {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         Export{selectedIds.length > 0 ? ` (${selectedIds.length})` : ''}
                     </button>
-                    {user?.role === 'GLOBAL_ADMIN' && (
+                    {(user?.role === 'GLOBAL_ADMIN' || user?.role === 'STATE_SECRETARY' || user?.role === 'DISTRICT_SECRETARY' || user?.role === 'CLUB_OWNER') && (
                         <Link href="/dashboard/students/new" className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 flex items-center gap-2">
                             <Plus className="w-4 h-4" /> Add Student
                         </Link>
@@ -591,21 +612,24 @@ export default function StudentsPage() {
                                                 <Edit2 className="w-4 h-4" />
                                                 <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit</span>
                                             </Link>
+                                            {/* Resend Credentials: admin-only sensitive action. */}
                                             {user?.role === 'GLOBAL_ADMIN' && (
-                                            <>
-                                            <button
-                                                onClick={() => handleResendCredentials(student)}
-                                                disabled={resendLoading === student.id}
-                                                className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
-                                            >
-                                                {resendLoading === student.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
-                                            </button>
-                                            <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative">
-                                                <Trash2 className="w-4 h-4" />
-                                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
-                                            </button>
-                                            </>
+                                                <button
+                                                    onClick={() => handleResendCredentials(student)}
+                                                    disabled={resendLoading === student.id}
+                                                    className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
+                                                >
+                                                    {resendLoading === student.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
+                                                </button>
+                                            )}
+                                            {/* Delete: admin, state secretary, or district secretary.
+                                                Backend scope check enforces jurisdiction limits. */}
+                                            {(user?.role === 'GLOBAL_ADMIN' || user?.role === 'STATE_SECRETARY' || user?.role === 'DISTRICT_SECRETARY') && (
+                                                <button onClick={() => handleDeleteStudent(student)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative">
+                                                    <Trash2 className="w-4 h-4" />
+                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
+                                                </button>
                                             )}
                                         </div>
                                     </td>

@@ -295,7 +295,7 @@ export default function DistrictsPage() {
                         <Download className="w-4 h-4" />
                         Export{selectedDistricts.length > 0 ? ` (${selectedDistricts.length})` : ''}
                     </button>
-                    {user?.role === 'GLOBAL_ADMIN' && (
+                    {(user?.role === 'GLOBAL_ADMIN' || user?.role === 'STATE_SECRETARY') && (
                         <Link
                             href="/dashboard/districts/new"
                             className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 flex items-center gap-2"
@@ -585,24 +585,31 @@ export default function DistrictsPage() {
                                                     <Edit2 className="w-4 h-4" />
                                                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Edit</span>
                                                 </Link>
+                                                {/* Resend Credentials stays admin-only — it issues a
+                                                    password reset and re-sends the welcome email.
+                                                    Too powerful to hand to state secretaries. */}
                                                 {user?.role === 'GLOBAL_ADMIN' && (
-                                                <>
-                                                <button
-                                                    onClick={() => handleResendCredentials(district)}
-                                                    disabled={resendLoading === district.id}
-                                                    className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
-                                                >
-                                                    {resendLoading === district.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(district.id)}
-                                                    className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
-                                                </button>
-                                                </>
+                                                    <button
+                                                        onClick={() => handleResendCredentials(district)}
+                                                        disabled={resendLoading === district.id}
+                                                        className="p-2 hover:bg-blue-50 rounded-lg text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 group relative"
+                                                    >
+                                                        {resendLoading === district.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Resend Credentials</span>
+                                                    </button>
+                                                )}
+                                                {/* Delete: admin or state secretary. Backend
+                                                    verifyApprovalScope('district') rejects cross-state
+                                                    attempts, so the button being visible doesn't mean
+                                                    the call will succeed. */}
+                                                {(user?.role === 'GLOBAL_ADMIN' || user?.role === 'STATE_SECRETARY') && (
+                                                    <button
+                                                        onClick={() => handleDelete(district.id)}
+                                                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors group relative"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Delete</span>
+                                                    </button>
                                                 )}
                                             </div>
                                         </td>
