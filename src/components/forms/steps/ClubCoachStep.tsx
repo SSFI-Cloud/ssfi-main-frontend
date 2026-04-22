@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRegistrationStore } from '@/lib/store/registrationStore';
 import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
-import { Building2, GraduationCap } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 
 // Canonical skate-category list offered during registration. Backend
 // will resolve the label to CategoryType.id (creating the row if it
@@ -99,41 +99,14 @@ export default function ClubCoachStep({ onComplete }: { onComplete: (data: FormD
 
   return (
     <form id="step-4-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      {/* Club/School Mode Toggle */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Register under <span className="text-red-400">*</span></label>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => { setClubMode('club'); setValue('clubId', ''); }}
-            className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
-              clubMode === 'club'
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Building2 className="w-4 h-4" />
-              Club
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setClubMode('school')}
-            className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
-              clubMode === 'school'
-                ? 'border-amber-500 bg-amber-50 text-amber-700'
-                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <GraduationCap className="w-4 h-4" />
-              School
-            </div>
-          </button>
-        </div>
-      </div>
-
+      {/*
+        Club is the default path. The separate "School" mode the form
+        used to offer (big Building2 / GraduationCap toggle at the top)
+        has been folded into a single checkbox below the club dropdown
+        — when the skater doesn't belong to a registered club, tick
+        the box and the school name from Step 2 is carried through as
+        the club. Same underlying logic, fewer clicks.
+      */}
       <div className="grid md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">State <span className="text-red-400">*</span></label>
@@ -164,13 +137,44 @@ export default function ClubCoachStep({ onComplete }: { onComplete: (data: FormD
         ) : (
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">School Name</label>
-            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 font-medium">
-              {formData.schoolName || 'Please enter school name in Step 2 (Family & School)'}
+            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 font-medium flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 flex-shrink-0" />
+              <span>{formData.schoolName || 'Please enter school name in Step 2 (Family & School)'}</span>
             </div>
             <input type="hidden" {...register('clubId')} />
-            <p className="mt-1 text-xs text-gray-500">Your school name from Step 2 will be used as your club</p>
+            <p className="mt-1 text-xs text-gray-500">Your school name from Step 2 is being used as your club.</p>
           </div>
         )}
+
+        {/* "I don't belong to a club" checkbox. Lives under the club
+            picker so it reads left-to-right: try to pick a club first,
+            tick this only if none applies. Flipping the checkbox
+            toggles `clubMode` which the existing useEffect above uses
+            to auto-populate clubId with `school:<schoolName>`. */}
+        <div className="md:col-span-2">
+          <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 bg-gray-50 cursor-pointer hover:border-amber-300 hover:bg-amber-50/40 transition-colors">
+            <input
+              type="checkbox"
+              checked={clubMode === 'school'}
+              onChange={(e) => {
+                const next = e.target.checked ? 'school' : 'club';
+                setClubMode(next);
+                // Clear clubId only when flipping INTO club mode; the
+                // school branch is repopulated by the existing effect.
+                if (next === 'club') setValue('clubId', '');
+              }}
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+            />
+            <div className="flex-1">
+              <span className="block text-sm font-medium text-gray-800">
+                My child doesn't belong to a registered club — register under their school instead
+              </span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                The school name you entered in Step 2 will be used as the club. Only tick this if no affiliated club appears in the list above.
+              </span>
+            </div>
+          </label>
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Coach Name <span className="text-gray-400">(Optional)</span></label>
