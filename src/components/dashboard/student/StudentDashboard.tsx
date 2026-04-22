@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
-  User, Trophy, Calendar, Clock, CheckCircle2, AlertCircle,
+  Trophy, Calendar, Clock, CheckCircle2, AlertCircle,
   ChevronRight, Phone, Mail, Building2, RefreshCw, MapPin, Ticket,
 } from 'lucide-react';
 import { StatusBadge, DashCard, StatCard, DashboardHero, RenewalCountdownBadge } from '../shared/DashboardComponents';
@@ -51,7 +51,9 @@ export default function StudentDashboardComponent() {
           onRenew={() => { window.location.href = '/dashboard/renew-membership'; }} />
       )}
 
-      {/* Hero */}
+      {/* Hero — profile-photo "actions" slot removed per request.
+          The hero now just shows name / role / subtitle / stats; the
+          photo is reachable from the profile sidebar / edit page. */}
       <DashboardHero
         name={`${profile.firstName} ${profile.lastName}`}
         role="Student Athlete"
@@ -62,11 +64,6 @@ export default function StudentDashboardComponent() {
           { label: 'Events Registered', value: stats.totalEventsRegistered },
           { label: 'Upcoming', value: stats.upcomingEventsCount },
         ]}
-        actions={
-          profile.profilePhoto
-            ? <img src={profile.profilePhoto} alt={`${profile.firstName} ${profile.lastName}`} className="w-16 h-16 rounded-xl object-cover border-2 border-white/30" />
-            : <div className="w-16 h-16 rounded-xl bg-white/10 flex items-center justify-center"><User className="w-8 h-8 text-white" /></div>
-        }
       />
 
       {/* Renewal countdown + Stats row */}
