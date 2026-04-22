@@ -23,6 +23,7 @@ import {
     Mail, Phone,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface FormData {
     name: string;
@@ -124,8 +125,11 @@ export default function EditStatePage() {
                     // a state on save.
                     isActive: s.isActive !== false,
                 });
-                if (s.logo) setLogoPreview(s.logo);
-                if (s.presidentPhoto) setPresidentPreview(s.presidentPhoto);
+                // Resolve backend-relative paths before stuffing into the
+                // preview — raw "uploads/..." would otherwise render as a
+                // page-relative URL and 404. data: URIs pass through.
+                if (s.logo) setLogoPreview(resolveImageUrl(s.logo));
+                if (s.presidentPhoto) setPresidentPreview(resolveImageUrl(s.presidentPhoto));
 
                 // Prime the Secretary section from the linked StateSecretary
                 // row (if any). `id` is CUID — required for the PUT target.
@@ -147,10 +151,10 @@ export default function EditStatePage() {
                         logo: '',
                         associationRegistrationCopy: '',
                     });
-                    if (sec.profilePhoto) setSecretaryProfilePreview(sec.profilePhoto);
-                    if (sec.identityProof) setSecretaryIdProofPreview(sec.identityProof);
-                    if (sec.logo) setSecretaryLogoPreview(sec.logo);
-                    if (sec.associationRegistrationCopy) setSecretaryRegCopyPreview(sec.associationRegistrationCopy);
+                    if (sec.profilePhoto) setSecretaryProfilePreview(resolveImageUrl(sec.profilePhoto));
+                    if (sec.identityProof) setSecretaryIdProofPreview(resolveImageUrl(sec.identityProof));
+                    if (sec.logo) setSecretaryLogoPreview(resolveImageUrl(sec.logo));
+                    if (sec.associationRegistrationCopy) setSecretaryRegCopyPreview(resolveImageUrl(sec.associationRegistrationCopy));
                 }
             } catch (err: any) {
                 setError(err?.response?.data?.message || 'Failed to load state');

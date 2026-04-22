@@ -8,8 +8,7 @@ import {
   ChevronDown, User, Search,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
-
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface StateOption {
   id: number;
@@ -43,9 +42,15 @@ interface StateDirectoryData {
   }[];
 }
 
+// Thin wrapper around the shared resolver — returns null (not empty
+// string) so the Avatar fallback branch triggers cleanly. The old
+// inline version didn't prepend `/` when multer paths came through
+// without a leading slash (uploads/photos/... → broken URL) and
+// mangled data: URIs.
 function getImgSrc(img?: string | null): string | null {
   if (!img) return null;
-  return img.startsWith('http') ? img : `${API_BASE}${img}`;
+  const resolved = resolveImageUrl(img);
+  return resolved || null;
 }
 
 // ── Avatar component (circular photo with fallback) ──

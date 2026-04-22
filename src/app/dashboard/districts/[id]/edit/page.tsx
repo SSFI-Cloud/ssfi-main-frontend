@@ -19,6 +19,7 @@ import {
     ImagePlus, X, Shield, User, ChevronDown, ChevronUp, Mail, Phone,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface FormData {
     name: string;
@@ -113,7 +114,10 @@ export default function EditDistrictPage() {
                     // deactivate a district on save.
                     isActive: d.isActive !== false,
                 });
-                if (d.logo) setLogoPreview(d.logo);
+                // See states/[id]/edit — raw backend paths need resolving
+                // before they hit an <img src>, otherwise they 404 as
+                // page-relative URLs.
+                if (d.logo) setLogoPreview(resolveImageUrl(d.logo));
                 setStates(Array.isArray(st) ? st : []);
 
                 // Prime the Secretary section from the linked
@@ -134,10 +138,10 @@ export default function EditDistrictPage() {
                         logo: '',
                         associationRegistrationCopy: '',
                     });
-                    if (sec.profilePhoto) setSecretaryProfilePreview(sec.profilePhoto);
-                    if (sec.identityProof) setSecretaryIdProofPreview(sec.identityProof);
-                    if (sec.logo) setSecretaryLogoPreview(sec.logo);
-                    if (sec.associationRegistrationCopy) setSecretaryRegCopyPreview(sec.associationRegistrationCopy);
+                    if (sec.profilePhoto) setSecretaryProfilePreview(resolveImageUrl(sec.profilePhoto));
+                    if (sec.identityProof) setSecretaryIdProofPreview(resolveImageUrl(sec.identityProof));
+                    if (sec.logo) setSecretaryLogoPreview(resolveImageUrl(sec.logo));
+                    if (sec.associationRegistrationCopy) setSecretaryRegCopyPreview(resolveImageUrl(sec.associationRegistrationCopy));
                 }
             } catch (err: any) {
                 setError(err?.response?.data?.message || 'Failed to load district');
