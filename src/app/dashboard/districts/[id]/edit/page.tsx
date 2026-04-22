@@ -19,6 +19,7 @@ import {
     ImagePlus, X, Shield, User, ChevronDown, ChevronUp, Mail, Phone,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
+import DownloadButton from '@/components/shared/DownloadButton';
 import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface FormData {
@@ -304,6 +305,11 @@ export default function EditDistrictPage() {
                             <label className={labelCls}>District Logo</label>
                             <FilePicker preview={logoPreview} onPick={() => logoRef.current?.click()} onClear={() => { setLogoPreview(null); set('logo', ''); }} />
                             <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={onLogo} />
+                            {form.logo && (
+                                <div className="mt-2">
+                                    <DownloadButton url={form.logo} filename={`${form.name || 'district'}-logo`} label="Download current logo" />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -409,21 +415,41 @@ export default function EditDistrictPage() {
                                         <label className={labelCls}>Profile Photo</label>
                                         <FilePicker preview={secretaryProfilePreview} onPick={() => secretaryProfileRef.current?.click()} onClear={() => { setSecretaryProfilePreview(null); setSec('profilePhoto', ''); }} />
                                         <input ref={secretaryProfileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onSecretaryFile(e, 'profilePhoto', setSecretaryProfilePreview)} />
+                                        {secretary.profilePhoto && (
+                                            <div className="mt-2">
+                                                <DownloadButton url={secretary.profilePhoto} filename={`${secretary.name || 'secretary'}-photo`} label="Download current" />
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label className={labelCls}>Identity Proof</label>
                                         <FilePicker preview={secretaryIdProofPreview} onPick={() => secretaryIdProofRef.current?.click()} onClear={() => { setSecretaryIdProofPreview(null); setSec('identityProof', ''); }} />
                                         <input ref={secretaryIdProofRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onSecretaryFile(e, 'identityProof', setSecretaryIdProofPreview)} />
+                                        {secretary.identityProof && (
+                                            <div className="mt-2">
+                                                <DownloadButton url={secretary.identityProof} filename={`${secretary.name || 'secretary'}-id-proof`} label="Download current" />
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label className={labelCls}>Association Logo</label>
                                         <FilePicker preview={secretaryLogoPreview} onPick={() => secretaryLogoRef.current?.click()} onClear={() => { setSecretaryLogoPreview(null); setSec('logo', ''); }} />
                                         <input ref={secretaryLogoRef} type="file" accept="image/*" className="hidden" onChange={(e) => onSecretaryFile(e, 'logo', setSecretaryLogoPreview)} />
+                                        {secretary.logo && (
+                                            <div className="mt-2">
+                                                <DownloadButton url={secretary.logo} filename={`${secretary.associationName || 'association'}-logo`} label="Download current" />
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label className={labelCls}>Association Registration Copy</label>
                                         <FilePicker preview={secretaryRegCopyPreview} onPick={() => secretaryRegCopyRef.current?.click()} onClear={() => { setSecretaryRegCopyPreview(null); setSec('associationRegistrationCopy', ''); }} />
                                         <input ref={secretaryRegCopyRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onSecretaryFile(e, 'associationRegistrationCopy', setSecretaryRegCopyPreview)} />
+                                        {secretary.associationRegistrationCopy && (
+                                            <div className="mt-2">
+                                                <DownloadButton url={secretary.associationRegistrationCopy} filename={`${secretary.associationName || 'association'}-registration`} label="Download current" />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

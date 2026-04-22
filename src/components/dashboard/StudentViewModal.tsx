@@ -6,6 +6,7 @@ import {
     Users, AlertCircle, CheckCircle2, Loader2,
     GraduationCap, Heart, Trophy, Shield
 } from 'lucide-react';
+import DownloadButton from '@/components/shared/DownloadButton';
 
 /* Always use the backend base URL for serving uploaded images */
 const IMG_BASE = 'https://api.ssfiskate.com';
@@ -132,6 +133,13 @@ export default function StudentViewModal({ student, isLoading, onClose }: Studen
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img src={imgUrl(student.profile_image)} alt={student.name} className="object-cover w-full h-full" loading="lazy" />
                                                 <span className="absolute inset-0 rounded-full bg-gradient-to-b from-black/5 via-transparent to-black/25 pointer-events-none" />
+                                                <DownloadButton
+                                                    url={student.profile_image}
+                                                    filename={`${student.name || 'student'}-photo`}
+                                                    variant="overlay"
+                                                    label="Download photo"
+                                                    className="!w-6 !h-6 !top-1 !right-1"
+                                                />
                                             </>
                                         ) : (
                                             <span className={`flex items-center justify-center w-full h-full ${student.gender === 'FEMALE' ? 'bg-teal-100' : 'bg-cyan-100'}`}>

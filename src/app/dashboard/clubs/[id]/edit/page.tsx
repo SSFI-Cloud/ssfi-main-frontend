@@ -11,6 +11,7 @@ import {
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useStates, useDistricts } from '@/lib/hooks/useStudent';
+import DownloadButton from '@/components/shared/DownloadButton';
 
 interface ClubData {
     id: string;
@@ -337,6 +338,9 @@ export default function EditClubPage() {
                                     <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} className="hidden" />
                                 </label>
                                 <p className="text-xs text-gray-500">PNG, JPG or WebP. Max 5MB.</p>
+                                {form.logo && (
+                                    <DownloadButton url={form.logo} filename={`${form.name || 'club'}-logo`} label="Download current logo" />
+                                )}
                             </div>
                         </div>
                     </div>

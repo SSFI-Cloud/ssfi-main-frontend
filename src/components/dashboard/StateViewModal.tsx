@@ -7,6 +7,7 @@ import {
     CheckCircle2, XCircle, Loader2
 } from 'lucide-react';
 import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
+import DownloadButton from '@/components/shared/DownloadButton';
 
 interface SecretaryProfile {
     uid: string | null;
@@ -140,17 +141,26 @@ export default function StateViewModal({ state, isLoading, onClose }: StateViewM
                                         {/* Secretary header: photo + name + status */}
                                         <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
                                             {/* Photo */}
-                                            <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                            <div className="relative w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
                                                 {state.secretary.profilePhoto ? (
-                                                    <img
-                                                        // resolveImageUrl handles every path shape the DB can hold:
-                                                        // full https://, data: base64, /uploads/..., uploads/...
-                                                        // The old hardcoded concat broke on full URLs and data URIs.
-                                                        src={resolveImageUrl(state.secretary.profilePhoto)}
-                                                        alt={state.secretary.name}
-                                                        className="object-cover w-full h-full"
-                                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                                                    />
+                                                    <>
+                                                        <img
+                                                            // resolveImageUrl handles every path shape the DB can hold:
+                                                            // full https://, data: base64, /uploads/..., uploads/...
+                                                            // The old hardcoded concat broke on full URLs and data URIs.
+                                                            src={resolveImageUrl(state.secretary.profilePhoto)}
+                                                            alt={state.secretary.name}
+                                                            className="object-cover w-full h-full"
+                                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                                        />
+                                                        <DownloadButton
+                                                            url={state.secretary.profilePhoto}
+                                                            filename={`${state.secretary.name || 'secretary'}-photo`}
+                                                            variant="overlay"
+                                                            label="Download photo"
+                                                            className="!w-6 !h-6 !top-1 !right-1"
+                                                        />
+                                                    </>
                                                 ) : (
                                                     <User className="w-7 h-7 text-gray-600" />
                                                 )}

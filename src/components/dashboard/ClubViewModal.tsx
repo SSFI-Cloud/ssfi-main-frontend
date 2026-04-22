@@ -6,6 +6,7 @@ import {
     Hash, Shield, Users, AlertCircle, Globe,
     CheckCircle2, XCircle, Loader2, Building2
 } from 'lucide-react';
+import DownloadButton from '@/components/shared/DownloadButton';
 
 interface ClubOwner {
     uid: string | null;
@@ -89,13 +90,22 @@ export default function ClubViewModal({ club, isLoading, onClose }: ClubViewModa
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <div className="relative w-11 h-11 rounded-xl bg-emerald-50 border border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {club?.logo ? (
-                                    <img
-                                        src={club.logo.startsWith('http') || club.logo.startsWith('data:') ? club.logo : `https://api.ssfiskate.com/${club.logo}`}
-                                        alt={club.club_name}
-                                        className="w-full h-full object-cover"
-                                    />
+                                    <>
+                                        <img
+                                            src={club.logo.startsWith('http') || club.logo.startsWith('data:') ? club.logo : `https://api.ssfiskate.com/${club.logo}`}
+                                            alt={club.club_name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <DownloadButton
+                                            url={club.logo}
+                                            filename={`${club.club_name || 'club'}-logo`}
+                                            variant="overlay"
+                                            label="Download logo"
+                                            className="!w-5 !h-5 !top-0.5 !right-0.5"
+                                        />
+                                    </>
                                 ) : (
                                     <Shield className="w-5 h-5 text-gray-900" />
                                 )}
@@ -158,10 +168,21 @@ export default function ClubViewModal({ club, isLoading, onClose }: ClubViewModa
                                     <div className="space-y-0 divide-y divide-gray-100">
                                         {/* Owner header */}
                                         <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                                            <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                                                {club.owner.profilePhoto
-                                                    ? <img src={`https://api.ssfiskate.com/${club.owner.profilePhoto}`} alt="Club Owner" className="object-cover w-full h-full" />
-                                                    : <User className="w-7 h-7 text-gray-600" />}
+                                            <div className="relative w-14 h-14 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                                {club.owner.profilePhoto ? (
+                                                    <>
+                                                        <img src={`https://api.ssfiskate.com/${club.owner.profilePhoto}`} alt="Club Owner" className="object-cover w-full h-full" />
+                                                        <DownloadButton
+                                                            url={club.owner.profilePhoto}
+                                                            filename={`${club.owner.name || 'owner'}-photo`}
+                                                            variant="overlay"
+                                                            label="Download photo"
+                                                            className="!w-6 !h-6 !top-1 !right-1"
+                                                        />
+                                                    </>
+                                                ) : (
+                                                    <User className="w-7 h-7 text-gray-600" />
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 flex-wrap">

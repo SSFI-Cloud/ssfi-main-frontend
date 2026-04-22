@@ -7,6 +7,7 @@ import {
     CheckCircle2, XCircle, Loader2
 } from 'lucide-react';
 import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
+import DownloadButton from '@/components/shared/DownloadButton';
 
 interface SecretaryProfile {
     uid: string | null;
@@ -141,19 +142,28 @@ export default function DistrictViewModal({ district, isLoading, onClose }: Dist
                                     <div className="space-y-0 divide-y divide-gray-100">
                                         {/* Secretary header: photo + name + status */}
                                         <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                                            <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                            <div className="relative w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
                                                 {district.secretary.profilePhoto ? (
-                                                    <img
-                                                        // resolveImageUrl covers full URLs, data: base64,
-                                                        // and every uploads/... variant with / without
-                                                        // leading slash. The old concat produced a
-                                                        // double-slashed or slash-missing URL depending
-                                                        // on how the row was saved (multer vs admin edit).
-                                                        src={resolveImageUrl(district.secretary.profilePhoto)}
-                                                        alt={district.secretary.name}
-                                                        className="object-cover w-full h-full"
-                                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                                                    />
+                                                    <>
+                                                        <img
+                                                            // resolveImageUrl covers full URLs, data: base64,
+                                                            // and every uploads/... variant with / without
+                                                            // leading slash. The old concat produced a
+                                                            // double-slashed or slash-missing URL depending
+                                                            // on how the row was saved (multer vs admin edit).
+                                                            src={resolveImageUrl(district.secretary.profilePhoto)}
+                                                            alt={district.secretary.name}
+                                                            className="object-cover w-full h-full"
+                                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                                                        />
+                                                        <DownloadButton
+                                                            url={district.secretary.profilePhoto}
+                                                            filename={`${district.secretary.name || 'secretary'}-photo`}
+                                                            variant="overlay"
+                                                            label="Download photo"
+                                                            className="!w-6 !h-6 !top-1 !right-1"
+                                                        />
+                                                    </>
                                                 ) : (
                                                     <User className="w-7 h-7 text-gray-600" />
                                                 )}
