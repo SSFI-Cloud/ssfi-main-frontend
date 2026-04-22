@@ -142,7 +142,22 @@ const Header = () => {
 
   const getUserDisplayName = () => {
     if (!user) return 'User';
-    return user.name || user.firstName ? `${user.firstName} ${user.lastName || ''}` : user.email?.split('@')[0] || 'User';
+    // Previously this was:
+    //   user.name || user.firstName ? `${user.firstName} ${user.lastName}` : user.email...
+    // Operator precedence groups that as:
+    //   (user.name || user.firstName) ? `${user.firstName}...` : ...
+    // So a user with a `name` field but no `firstName` passed the gate
+    // and then rendered `undefined undefined` inside the template
+    // literal — which is why logged-in club owners / secretaries saw
+    // "undefined" in the header while their dashboard showed their
+    // name correctly. Now we check the firstName/lastName split first,
+    // fall back to the single `name` field, then to email.
+    if (user.firstName) {
+      return `${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`;
+    }
+    if (user.name) return user.name;
+    if (user.email) return user.email.split('@')[0];
+    return 'User';
   };
 
   return (
