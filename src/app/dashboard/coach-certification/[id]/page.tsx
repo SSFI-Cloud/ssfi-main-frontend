@@ -5,13 +5,14 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, ArrowLeft, Users, Calendar, MapPin, IndianRupee, Download,
-  CheckCircle2, Star, Search, Loader2, Eye, Edit2, X,
+  CheckCircle2, Star, Search, Loader2, Eye, Edit2, X, Save,
   FileSpreadsheet
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import toast from 'react-hot-toast';
+import DownloadButton from '@/components/shared/DownloadButton';
 
 interface Registration {
   id: number; registrationNumber: string; fullName: string; fatherName: string;
@@ -21,6 +22,13 @@ interface Registration {
   paymentStatus: string; amount: string; status: string;
   isCompleted: boolean; rating: string | null; remarks: string | null;
   certificateNumber: string | null; createdAt: string;
+  // Admin-side fields — surfaced in the edit modal. Present on the
+  // detail response, optional here because the list endpoint trims them.
+  address?: string | null;
+  pincode?: string | null;
+  aadhaarNumber?: string | null;
+  photo?: string | null;
+  aadhaarCard?: string | null;
 }
 
 interface Program {
@@ -57,6 +65,63 @@ export default function ProgramDetailPage() {
   const [remarks, setRemarks] = useState('');
   const [saving, setSaving] = useState(false);
   const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 1 });
+
+  // Edit modal — admin can correct any participant-filled field and
+  // download the photo / Aadhaar scan the applicant uploaded.
+  const [editModal, setEditModal] = useState<Registration | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Registration>>({});
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = async (reg: Registration) => {
+    setEditModal(reg);
+    setEditForm(reg); // seed from list row, then replace with server detail
+    setEditLoading(true);
+    try {
+      const res = await api.get('/coach-cert/registrations/' + reg.id);
+      const full = res.data?.data as Registration;
+      if (full) {
+        setEditModal(full);
+        setEditForm(full);
+      }
+    } catch {
+      toast.error('Failed to load participant details');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!editModal) return;
+    setEditSaving(true);
+    try {
+      const payload: any = {
+        fullName: editForm.fullName,
+        fatherName: editForm.fatherName,
+        gender: editForm.gender,
+        dateOfBirth: editForm.dateOfBirth ? String(editForm.dateOfBirth).split('T')[0] : undefined,
+        phone: editForm.phone,
+        email: editForm.email,
+        address: editForm.address,
+        city: editForm.city,
+        district: editForm.district,
+        state: editForm.state,
+        pincode: editForm.pincode,
+        bloodGroup: editForm.bloodGroup,
+        skatingExperience: editForm.skatingExperience,
+        tshirtSize: editForm.tshirtSize,
+        aadhaarNumber: editForm.aadhaarNumber,
+      };
+      await api.put('/coach-cert/registrations/' + editModal.id, payload);
+      toast.success('Participant details updated');
+      setEditModal(null);
+      fetchRegistrations();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save changes');
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   const fetchProgram = useCallback(async () => {
     try {
@@ -233,6 +298,13 @@ export default function ProgramDetailPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        {/* View / edit — always available, even for
+                            completed participants so the admin can
+                            still pull their submitted attachments. */}
+                        <button onClick={() => openEdit(r)}
+                          className="p-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-700 transition-all" title="View / Edit details">
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
                         {!r.isCompleted && (
                           <>
                             <button onClick={() => { setCompleteModal(r); setRating(0); setRemarks(''); }}
@@ -311,6 +383,174 @@ export default function ProgramDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* View / Edit Participant Modal.
+          Loads full record via GET /coach-cert/registrations/:id so fields
+          like address / aadhaarNumber / photo / aadhaarCard (which the
+          list endpoint trims) are available to edit + download. Save PUTs
+          only the whitelisted set — see coach-cert.service.updateRegistration. */}
+      <AnimatePresence>
+        {editModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            onClick={() => !editSaving && setEditModal(null)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Participant Details</h3>
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">{editModal.registrationNumber}</p>
+                </div>
+                <button onClick={() => setEditModal(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-500"><X className="w-5 h-5" /></button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
+                {editLoading ? (
+                  <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-emerald-500" /></div>
+                ) : (
+                  <>
+                    {/* Attachments — shown first so the admin sees them
+                        before scrolling through form fields. File upload
+                        itself isn't wired into this modal yet; admins who
+                        need to replace a photo can do it via the public
+                        re-registration flow. */}
+                    <section>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Attachments</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Photo</p>
+                          {editForm.photo ? (
+                            <div className="flex items-center gap-3">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={editForm.photo.startsWith('http') || editForm.photo.startsWith('data:')
+                                  ? editForm.photo
+                                  : 'https://api.ssfiskate.com/' + editForm.photo.replace(/^\//, '')}
+                                alt="Participant photo"
+                                className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                              <DownloadButton url={editForm.photo}
+                                filename={(editForm.fullName || 'participant') + '-photo'}
+                                label="Download" />
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500">No photo uploaded</p>
+                          )}
+                        </div>
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Aadhaar Card</p>
+                          {editForm.aadhaarCard ? (
+                            <DownloadButton url={editForm.aadhaarCard}
+                              filename={(editForm.fullName || 'participant') + '-aadhaar'}
+                              label="Download Aadhaar" />
+                          ) : (
+                            <p className="text-xs text-gray-500">No Aadhaar card uploaded</p>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+
+                    {/* Form fields — same whitelist as backend */}
+                    <section>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Personal Details</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Field label="Full Name *" value={editForm.fullName}
+                          onChange={v => setEditForm(f => ({ ...f, fullName: v }))} />
+                        <Field label="Father's Name" value={editForm.fatherName}
+                          onChange={v => setEditForm(f => ({ ...f, fatherName: v }))} />
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Gender</label>
+                          <select value={editForm.gender ?? ''}
+                            onChange={e => setEditForm(f => ({ ...f, gender: e.target.value }))}
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900">
+                            <option value="MALE">Male</option>
+                            <option value="FEMALE">Female</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </div>
+                        <Field label="Date of Birth" type="date"
+                          value={editForm.dateOfBirth ? String(editForm.dateOfBirth).split('T')[0] : ''}
+                          onChange={v => setEditForm(f => ({ ...f, dateOfBirth: v }))} />
+                        <Field label="Phone *" value={editForm.phone}
+                          onChange={v => setEditForm(f => ({ ...f, phone: v }))} />
+                        <Field label="Email" type="email" value={editForm.email}
+                          onChange={v => setEditForm(f => ({ ...f, email: v }))} />
+                        <Field label="Aadhaar Number" value={editForm.aadhaarNumber}
+                          onChange={v => setEditForm(f => ({ ...f, aadhaarNumber: v }))} />
+                        <Field label="Blood Group" value={editForm.bloodGroup}
+                          onChange={v => setEditForm(f => ({ ...f, bloodGroup: v }))} />
+                      </div>
+                    </section>
+
+                    <section>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Address</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="sm:col-span-2">
+                          <Field label="Address" value={editForm.address}
+                            onChange={v => setEditForm(f => ({ ...f, address: v }))} />
+                        </div>
+                        <Field label="City" value={editForm.city}
+                          onChange={v => setEditForm(f => ({ ...f, city: v }))} />
+                        <Field label="District" value={editForm.district}
+                          onChange={v => setEditForm(f => ({ ...f, district: v }))} />
+                        <Field label="State" value={editForm.state}
+                          onChange={v => setEditForm(f => ({ ...f, state: v }))} />
+                        <Field label="Pincode" value={editForm.pincode}
+                          onChange={v => setEditForm(f => ({ ...f, pincode: v }))} />
+                      </div>
+                    </section>
+
+                    <section>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Skating</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <Field label="Experience (Years)" type="number"
+                          value={editForm.skatingExperience != null ? String(editForm.skatingExperience) : ''}
+                          onChange={v => setEditForm(f => ({ ...f, skatingExperience: v === '' ? null : Number(v) }))} />
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">T-Shirt Size</label>
+                          <select value={editForm.tshirtSize ?? ''}
+                            onChange={e => setEditForm(f => ({ ...f, tshirtSize: e.target.value || null }))}
+                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900">
+                            <option value="">—</option>
+                            <option value="S">S</option><option value="M">M</option><option value="L">L</option>
+                            <option value="XL">XL</option><option value="XXL">XXL</option>
+                          </select>
+                        </div>
+                      </div>
+                    </section>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
+                <button onClick={() => setEditModal(null)} disabled={editSaving}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                <button onClick={handleEditSave} disabled={editSaving || editLoading}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-semibold disabled:opacity-50">
+                  {editSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Small text-input helper so the edit modal stays readable. Kept local
+// to this file — nothing else currently needs it.
+function Field({ label, value, onChange, type = 'text' }: {
+  label: string;
+  value: string | null | undefined;
+  onChange: (v: string) => void;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <input type={type} value={value ?? ''} onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30" />
     </div>
   );
 }
