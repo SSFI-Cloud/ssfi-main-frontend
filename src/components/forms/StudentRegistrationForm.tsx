@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import {
   User, Home, Shield, Users, MapPin, FileText,
-  ChevronLeft, ChevronRight, Check, Loader2, RefreshCw,
-  CheckCircle2, Pencil, ChevronDown, ChevronUp, Save,
+  ChevronLeft, ChevronRight, Check, CheckCircle, Loader2, RefreshCw,
+  CheckCircle2, Pencil, ChevronDown, ChevronUp, Save, AlertTriangle,
 } from 'lucide-react';
 
 import { useRegistrationStore } from '@/lib/store/registrationStore';
@@ -317,17 +317,76 @@ export default function StudentRegistrationForm() {
           {/* Step 0: Choose mode */}
           {mode === 'choose' && (
             <motion.div key="choose" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="max-w-2xl mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900">Are you a new or existing member?</h2>
-                <p className="text-sm text-gray-500 mt-1">Existing students can renew their membership directly.</p>
+              className="max-w-2xl mx-auto space-y-5">
+              {/* Prerequisites — what the student / parent should have
+                  ready before starting either New or Renewal. Surfaced
+                  here (not buried later) to cut down on abandoned forms. */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50">
+                  <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-emerald-600" /> Before you start — what you'll need
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Keep these handy. Both New Registration and Renewal need the same documents.</p>
+                </div>
+                <div className="p-6 space-y-5 text-sm">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Mandatory documents</p>
+                    <ul className="space-y-1.5 text-gray-700">
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Aadhaar number</strong> (12 digits) — used for OTP-based KYC verification through DigiLocker</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Date of birth</strong> — must match the Aadhaar record exactly</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Recent profile photo</strong> (auto-fetched from Aadhaar KYC; no separate upload needed)</span></li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Mandatory details to fill</p>
+                    <ul className="space-y-1.5 text-gray-700">
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span>Father's name and (optional) mother's name</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span>School name and academic board</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span>Coach name and coach's phone number</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span>Club affiliation (state → district → club)</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span>Skating discipline / category (Speed Quad, Inline, etc.)</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Insurance nominee</strong> — name, age, relation</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span>Full residential address with city + pincode</span></li>
+                    </ul>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                    <p className="text-xs font-semibold text-amber-900 mb-1.5 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Important rules
+                    </p>
+                    <ul className="space-y-1 text-xs text-amber-900">
+                      <li><strong>One phone, one student.</strong> Each mobile number can be linked to only one SSFI account. Siblings need different numbers.</li>
+                      <li>Phone number is your <strong>login ID</strong> — keep it active. You can update it later from your renewal screen.</li>
+                      <li>Email is optional but strongly recommended — it's used for OTPs, e-receipts, and renewal reminders.</li>
+                      <li><strong>Registration fee</strong> is collected online through Razorpay. Membership is confirmed only after payment is verified.</li>
+                    </ul>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-sky-50 border border-sky-200">
+                    <p className="text-xs font-semibold text-sky-900 mb-1.5 flex items-center gap-1.5">
+                      <RefreshCw className="w-3.5 h-3.5" /> Renewing an existing membership?
+                    </p>
+                    <p className="text-xs text-sky-900">
+                      Use the lookup below — we'll pre-fill your details. KYC isn't repeated if you've verified before.
+                      Membership extends by 1 year from your current expiry date.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="p-6">
-                <AffiliationLookupStep
-                  type="STUDENT"
-                  onFound={handleMemberFound}
-                  onNew={() => setMode('new')}
-                />
+
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-100">
+                  <h2 className="text-lg font-semibold text-gray-900">Are you a new or existing member?</h2>
+                  <p className="text-sm text-gray-500 mt-1">Existing students can renew their membership directly.</p>
+                </div>
+                <div className="p-6">
+                  <AffiliationLookupStep
+                    type="STUDENT"
+                    onFound={handleMemberFound}
+                    onNew={() => setMode('new')}
+                  />
+                </div>
               </div>
             </motion.div>
           )}
@@ -594,9 +653,14 @@ export default function StudentRegistrationForm() {
                               </div>
                             </div>
 
-                            {/* Contact — email editable, phone read-only because
-                                it's the login identifier and has a unique
-                                constraint. Admin can reset phone on request. */}
+                            {/* Contact — email + phone both editable. Phone
+                                used to be locked but legacy migrate.js rows
+                                were seeded with placeholders like
+                                "PH-SKT-{id}", and the only way to fix those
+                                was to ask an admin. Renewal is the natural
+                                place for the student to put a real number on
+                                file. Backend enforces 10-digit Indian + global
+                                uniqueness on User.phone. */}
                             <div>
                               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contact</p>
                               <div className="grid grid-cols-2 gap-3">
@@ -606,16 +670,27 @@ export default function StudentRegistrationForm() {
                                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
                                 </div>
                                 <div>
-                                  <label className="text-xs text-gray-500 mb-1 block">Phone <span className="text-gray-400">(login ID — contact admin to change)</span></label>
+                                  <label className="text-xs text-gray-500 mb-1 block">
+                                    Phone <span className="text-gray-400">(login ID)</span>
+                                    {renewProfile?.phoneIsPlaceholder && (
+                                      <span className="ml-1 text-amber-600">— placeholder, please replace</span>
+                                    )}
+                                  </label>
                                   <input
                                     type="tel"
-                                    value={renewMember?.phone || profileEdits.phone || ''}
-                                    readOnly
-                                    disabled
-                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600 cursor-not-allowed"
+                                    inputMode="numeric"
+                                    maxLength={10}
+                                    value={profileEdits.phone || ''}
+                                    onChange={e => setProfileEdits((p: any) => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                                    placeholder="10-digit Indian mobile"
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
                                   />
                                 </div>
                               </div>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Each phone number can be linked to only one SSFI account. Changing this phone will
+                                make it your new login ID — your password is not changed.
+                              </p>
                             </div>
 
                             <button type="button" onClick={handleSaveProfile} disabled={profileSaveLoading}

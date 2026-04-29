@@ -163,6 +163,11 @@ export default function EditStudentPage() {
                 gender: form.gender,
                 bloodGroup: form.bloodGroup || null,
                 email: form.email || null,
+                // Phone is editable now (was previously locked) so admins
+                // can fix legacy migrate.js placeholders ("PH-SKT-{id}")
+                // and any post-renewal typos. Only sent when non-empty —
+                // backend rejects blank with a 400.
+                ...(form.phone && form.phone.trim() ? { phone: form.phone.trim() } : {}),
                 fatherName: form.fatherName,
                 motherName: form.motherName || null,
                 schoolName: form.schoolName,
@@ -289,14 +294,24 @@ export default function EditStudentPage() {
                             </select>
                         </div>
                         <div>
-                            <label className={labelCls}>Phone</label>
+                            <label className={labelCls}>
+                                Phone
+                                {form.phone && /^PH-SKT-/.test(form.phone) && (
+                                    <span className="ml-2 text-xs text-amber-600 font-normal">(legacy placeholder — please replace)</span>
+                                )}
+                            </label>
                             <input
-                                className={`${inputCls} bg-gray-50 cursor-not-allowed`}
+                                className={inputCls}
                                 value={form.phone}
-                                readOnly
-                                title="Phone is the login seed for student accounts and can't be edited here"
-                                placeholder="—"
+                                onChange={(e) => set('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                inputMode="numeric"
+                                maxLength={10}
+                                placeholder="10-digit Indian mobile (e.g. 9876543210)"
                             />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Phone is the student's login identity. Changing it does not change their password —
+                                if they previously logged in with this number as their password, ask them to use Forgot Password after this update.
+                            </p>
                         </div>
                         <div className="sm:col-span-2">
                             <label className={labelCls}>Email</label>
