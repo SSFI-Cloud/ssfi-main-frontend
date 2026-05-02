@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, ArrowLeft, Users, Calendar, MapPin, IndianRupee, Download,
-  CheckCircle2, Star, Search, Loader2, Eye, Edit2, X, Save,
+  CheckCircle2, Star, Search, Loader2, Eye, Edit2, X, Save, Plus,
   FileSpreadsheet
 } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +13,7 @@ import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import toast from 'react-hot-toast';
 import DownloadButton from '@/components/shared/DownloadButton';
+import AddCoachParticipantModal from '@/components/dashboard/AddCoachParticipantModal';
 
 interface Registration {
   id: number; registrationNumber: string; fullName: string; fatherName: string;
@@ -72,6 +73,12 @@ export default function ProgramDetailPage() {
   const [editForm, setEditForm] = useState<Partial<Registration>>({});
   const [editLoading, setEditLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+
+  // Manual-add modal — admin-only entry point that mirrors the public
+  // registration form but with offline / online payment-mode toggle.
+  // Backend routes (/coach-cert/admin-create + /coach-cert/admin-initiate)
+  // are GLOBAL_ADMIN-only and DO NOT touch the public registration flow.
+  const [addOpen, setAddOpen] = useState(false);
 
   const openEdit = async (reg: Registration) => {
     setEditModal(reg);
@@ -250,6 +257,10 @@ export default function ProgramDetailPage() {
               <option value="ATTENDED">Attended</option><option value="COMPLETED">Completed</option>
               <option value="FAILED">Failed</option><option value="CANCELLED">Cancelled</option>
             </select>
+            <button onClick={() => setAddOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm transition-all">
+              <Plus className="w-4 h-4" /> Add Participant
+            </button>
             <button onClick={handleExport}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-sm transition-all">
               <FileSpreadsheet className="w-4 h-4" /> Export Excel
@@ -534,6 +545,17 @@ export default function ProgramDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Manual-add modal — admin-only entry point. Self-contained:
+          state, validation, payment-mode toggle, multipart upload. */}
+      <AddCoachParticipantModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        programId={Number(id)}
+        programTitle={program.title}
+        programPrice={Number(program.price)}
+        onAdded={() => { fetchRegistrations(); fetchProgram(); }}
+      />
     </div>
   );
 }

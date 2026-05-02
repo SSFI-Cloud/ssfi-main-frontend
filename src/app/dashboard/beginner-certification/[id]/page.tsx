@@ -5,12 +5,13 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Medal, ArrowLeft, Users, Calendar, MapPin, IndianRupee, CheckCircle2,
-  Star, Search, Loader2, Edit2, X, FileSpreadsheet, Award,
+  Star, Search, Loader2, Edit2, X, FileSpreadsheet, Award, Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import toast from 'react-hot-toast';
+import AddBeginnerParticipantModal from '@/components/dashboard/AddBeginnerParticipantModal';
 
 interface Registration {
   id: number; registrationNumber: string; fullName: string; fatherName: string;
@@ -52,6 +53,10 @@ export default function ProgramDetailPage() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [completeModal, setCompleteModal] = useState<Registration | null>(null);
+  // Manual-add modal — admin-only entry. Backend routes
+  // (/beginner-cert/admin-create + /beginner-cert/admin-initiate) are
+  // GLOBAL_ADMIN-only and DO NOT touch the public registration flow.
+  const [addOpen, setAddOpen] = useState(false);
   const [grade, setGrade] = useState('PARTICIPATION');
   const [rating, setRating] = useState(0);
   const [remarks, setRemarks] = useState('');
@@ -168,6 +173,10 @@ export default function ProgramDetailPage() {
               <option value="ATTENDED">Attended</option><option value="COMPLETED">Completed</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
+            <button onClick={() => setAddOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm transition-all">
+              <Plus className="w-4 h-4" /> Add Participant
+            </button>
             <button onClick={handleExport}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-sm transition-all">
               <FileSpreadsheet className="w-4 h-4" /> Export
@@ -307,6 +316,19 @@ export default function ProgramDetailPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Manual-add modal — admin-only entry point. Self-contained:
+          state, validation, payment-mode toggle, multipart upload. */}
+      {program && (
+        <AddBeginnerParticipantModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          programId={Number(id)}
+          programTitle={program.title}
+          programPrice={Number(program.price)}
+          onAdded={() => { fetchRegistrations(); fetchProgram(); }}
+        />
+      )}
     </div>
   );
 }
