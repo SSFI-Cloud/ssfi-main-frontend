@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import apiClient from '@/lib/api/client';
 import toast from 'react-hot-toast';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface NewsArticle {
     id: string; title: string; slug: string; excerpt?: string;
@@ -26,11 +27,10 @@ const ACCENT: Record<string, { badge: string; iconBg: string; hover: string; gra
     sky:     { badge: 'bg-sky-50 text-sky-700 border-sky-200',          iconBg: 'bg-sky-100 text-sky-600',       hover: 'hover:border-sky-200',    gradient: 'from-sky-500 to-cyan-500' },
 };
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
-
 const getAccent = (_article: NewsArticle, idx: number) => ACCENT_COLORS[idx % ACCENT_COLORS.length];
 const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-const getImgSrc = (img?: string) => !img ? null : img.startsWith('http') ? img : `${API_BASE}${img}`;
+// resolveImageUrl handles disk paths, full URLs, and legacy data: base64.
+const getImgSrc = (img?: string) => (img ? resolveImageUrl(img) : null);
 
 export default function NewsPageClient() {
     const [articles, setArticles] = useState<NewsArticle[]>([]);

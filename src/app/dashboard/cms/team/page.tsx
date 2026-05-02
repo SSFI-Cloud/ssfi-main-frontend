@@ -5,6 +5,7 @@ import { Plus, Edit, Trash2, Home, ToggleLeft, ToggleRight, GripVertical, Loader
 import { toast } from 'react-hot-toast';
 import apiClient from '@/lib/api/client';
 import ImageUpload from '@/components/admin/ImageUpload';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface TeamMember {
   id: number;
@@ -92,8 +93,6 @@ export default function TeamManagerPage() {
     } catch { toast.error('Update failed'); }
   };
 
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -124,7 +123,7 @@ export default function TeamManagerPage() {
               {/* Photo */}
               <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 shrink-0">
                 {m.photo ? (
-                  <img src={m.photo.startsWith('http') ? m.photo : `${API_BASE}${m.photo}`} alt={m.name} className="w-full h-full object-cover" />
+                  <img src={resolveImageUrl(m.photo)} alt={m.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-500 text-lg font-bold">
                     {m.name.charAt(0)}

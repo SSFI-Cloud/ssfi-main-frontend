@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { useBanners } from '@/lib/hooks/useCMS';
 import { Banner, BannerPosition, BANNER_POSITIONS, getStatusConfig, formatDate } from '@/types/cms';
 import apiClient from '@/lib/api/client';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 export default function BannersPage() {
   const { fetchBanners, isLoading } = useBanners();
@@ -40,8 +41,6 @@ export default function BannersPage() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Delete failed'); }
     finally { setDeleting(false); }
   };
-
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
 
   return (
     <div className="space-y-6">
@@ -82,7 +81,9 @@ export default function BannersPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(banner => {
             const status = getStatusConfig(banner.status);
-            const imgSrc = banner.imageUrl?.startsWith('http') ? banner.imageUrl : `${API_BASE}${banner.imageUrl}`;
+            // resolveImageUrl handles disk paths, full URLs, and legacy
+            // base64 data: URIs from the pre-fix upload pipeline.
+            const imgSrc = resolveImageUrl(banner.imageUrl);
             return (
               <div key={banner.id} className="group bg-white rounded-2xl border border-gray-200 overflow-hidden hover:border-gray-200 transition-colors">
                 <div className="relative aspect-video bg-[#f5f6f8]">

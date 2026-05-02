@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { useGalleryAlbums } from '@/lib/hooks/useCMS';
 import { GalleryAlbum, getStatusConfig } from '@/types/cms';
 import apiClient from '@/lib/api/client';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 export default function GalleryPage() {
   const { fetchAlbums, isLoading } = useGalleryAlbums();
@@ -38,7 +39,6 @@ export default function GalleryPage() {
     finally { setDeleting(false); }
   };
 
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
 
   return (
     <div className="space-y-6">
@@ -72,7 +72,9 @@ export default function GalleryPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(album => {
             const status = getStatusConfig(album.status);
-            const cover = album.coverImage?.startsWith('http') ? album.coverImage : album.coverImage ? `${API_BASE}${album.coverImage}` : null;
+            // resolveImageUrl handles disk paths, full URLs, and legacy
+            // base64 data: URIs from the pre-fix upload pipeline.
+            const cover = album.coverImage ? resolveImageUrl(album.coverImage) : null;
             return (
               <div key={album.id} className="group bg-white rounded-2xl border border-gray-200 overflow-hidden hover:border-gray-200 transition-colors">
                 <div className="relative aspect-[4/3] bg-[#f5f6f8]">

@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
 import apiClient from '@/lib/api/client';
 import Image from 'next/image';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface ImageUploadProps {
   value?: string | null;
@@ -48,7 +49,14 @@ export default function ImageUpload({ value, onChange, type, label, hint }: Imag
     if (file) handleFile(file);
   };
 
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
+  // Filename hint: show the disk filename for path-stored images, but
+  // for legacy base64 data URIs (`data:image/webp;base64,…`) just show
+  // a friendly label — splitting a base64 string on `/` produces the
+  // tail of the encoded payload, which is the noise that used to leak
+  // into the UI.
+  const filenameHint = value && value.startsWith('data:')
+    ? 'Legacy base64 image (re-upload to migrate to disk)'
+    : value?.split('/').pop();
 
   return (
     <div className="space-y-2">
@@ -58,7 +66,12 @@ export default function ImageUpload({ value, onChange, type, label, hint }: Imag
         <div className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
           <div className={`relative w-full ${type === 'team' ? 'aspect-[4/5]' : 'aspect-video'} max-h-64`}>
             <Image
-              src={value.startsWith('http') ? value : `${API_BASE}${value}`}
+              // resolveImageUrl handles every shape the upload pipeline
+              // has produced over time: backend disk paths (uploads/...
+              // with or without leading slash), full https URLs, and
+              // legacy `data:image/...;base64,...` strings stored in
+              // the DB before the upload-controller switched to disk.
+              src={resolveImageUrl(value)}
               alt="Uploaded"
               fill
               className="object-cover"
@@ -73,7 +86,7 @@ export default function ImageUpload({ value, onChange, type, label, hint }: Imag
             <X className="w-4 h-4" />
           </button>
           <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1.5">
-            <p className="text-xs text-white/70 truncate">{value.split('/').pop()}</p>
+            <p className="text-xs text-white/70 truncate">{filenameHint}</p>
           </div>
         </div>
       ) : (

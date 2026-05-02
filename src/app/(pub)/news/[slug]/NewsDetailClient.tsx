@@ -13,6 +13,7 @@ import {
 import { api } from '@/lib/api/client';
 import toast from 'react-hot-toast';
 import DOMPurify from 'dompurify';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface NewsArticle {
   id: string; title: string; slug: string; content: string;
@@ -21,9 +22,9 @@ interface NewsArticle {
   isFeatured?: boolean;
 }
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
 const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-const getImgSrc = (img?: string) => !img ? null : img.startsWith('http') ? img : `${API_BASE}${img}`;
+// resolveImageUrl handles disk paths, full URLs, and legacy data: base64.
+const getImgSrc = (img?: string) => (img ? resolveImageUrl(img) : null);
 const readTime = (content: string) => `${Math.max(1, Math.ceil(content.split(/\s+/).length / 200))} min read`;
 
 // Minimal markdown-to-HTML renderer

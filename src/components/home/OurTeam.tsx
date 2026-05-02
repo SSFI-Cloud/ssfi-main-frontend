@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { Users } from 'lucide-react';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 interface TeamMember {
   id: string;
   name: string;
@@ -19,8 +20,6 @@ const FALLBACK_TEAM: TeamMember[] = [
   { id: '2', name: 'Mr. Krishna Baisware', role: 'President', photo: '/images/team/krishna-baisware.webp' },
 ];
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
-
 interface OurTeamProps {
   members?: TeamMember[];
 }
@@ -28,25 +27,21 @@ interface OurTeamProps {
 export default function OurTeam({ members }: OurTeamProps) {
   const [team, setTeam] = useState<TeamMember[]>(FALLBACK_TEAM);
 
-  // Accept members from parent (aggregate endpoint)
-  // Merge local static photos over CMS upload URLs (Railway ephemeral FS loses uploads on redeploy)
-  const fallbackPhotoMap: Record<string, string> = {};
-  FALLBACK_TEAM.forEach(m => { if (m.photo) fallbackPhotoMap[m.role] = m.photo; });
+  // Accept members from the parent's aggregate endpoint. The previous
+  // implementation replaced any /uploads/ photo with a hardcoded local
+  // path because Railway's ephemeral FS used to drop uploads on
+  // redeploy — that's no longer true with the persistent volume mount,
+  // and that workaround was overriding admin-edited photos.
   useEffect(() => {
     if (Array.isArray(members) && members.length > 0) {
-      setTeam(members.map((m: any) => ({
-        ...m,
-        photo: m.photo?.startsWith('/uploads/') ? (fallbackPhotoMap[m.role] || m.photo) : m.photo,
-      })));
+      setTeam(members);
     }
   }, [members]);
 
-  const getPhotoSrc = (photo?: string) => {
-    if (!photo) return null;
-    if (photo.startsWith('http')) return photo;
-    if (photo.startsWith('/images/')) return photo;
-    return `${API_BASE}${photo}`;
-  };
+  // resolveImageUrl handles disk paths, full URLs, /images/* (local
+  // public folder), and legacy data: base64 from the pre-fix upload
+  // pipeline.
+  const getPhotoSrc = (photo?: string) => (photo ? resolveImageUrl(photo) : null);
 
   return (
     <section className="relative py-20 lg:py-24 overflow-hidden bg-gray-50">

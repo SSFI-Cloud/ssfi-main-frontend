@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import apiClient from '@/lib/api/client';
 import ImageUpload from '@/components/admin/ImageUpload';
 import { GalleryItem } from '@/types/cms';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 export default function EditGalleryPage() {
   const router = useRouter();
@@ -22,7 +23,6 @@ export default function EditGalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
 
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
 
   const load = async () => {
     try {
@@ -135,7 +135,10 @@ export default function EditGalleryPage() {
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {items.map(item => {
-                  const src = item.url?.startsWith('http') ? item.url : `${API_BASE}${item.url}`;
+                  // resolveImageUrl handles disk paths (uploads/...),
+                  // full URLs, and legacy base64 data: URIs from the
+                  // pre-fix upload pipeline.
+                  const src = resolveImageUrl(item.url);
                   return (
                     <div key={item.id} className="group relative aspect-square rounded-xl overflow-hidden bg-[#f5f6f8] border border-gray-200">
                       <img src={src} alt={'Gallery image'} className="w-full h-full object-cover" />

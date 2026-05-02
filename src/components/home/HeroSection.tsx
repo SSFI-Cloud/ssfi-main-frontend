@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 /* ─── Types ─── */
 interface CMSBanner {
@@ -120,7 +121,6 @@ const FALLBACK_SLIDES: SlideData[] = [
   },
 ];
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1').replace('/api/v1', '');
 const GHOST_WORDS = ['GLORY', 'SPEED', 'INDIA', 'SKATE'];
 
 /* ─── CSS Keyframes ─── */
@@ -170,9 +170,9 @@ const HeroSection = ({ banners, stats: propStats }: HeroSectionProps) => {
       ctaLink: s.linkUrl || fallback.ctaLink,
       secondaryText: meta.secondaryCtaText || fallback.secondaryText,
       secondaryLink: meta.secondaryCtaLink || fallback.secondaryLink,
-      image: s.imageUrl
-        ? (s.imageUrl.startsWith('http') ? s.imageUrl : s.imageUrl.startsWith('/images/') ? s.imageUrl : `${API_BASE}${s.imageUrl}`)
-        : fallback.image,
+      // resolveImageUrl handles disk paths, data: URIs (legacy CMS
+      // upload base64), and full URLs uniformly.
+      image: s.imageUrl ? resolveImageUrl(s.imageUrl) : fallback.image,
       ghost: meta.ghostWord || GHOST_WORDS[i % GHOST_WORDS.length],
       stats: fallback.stats,
     };

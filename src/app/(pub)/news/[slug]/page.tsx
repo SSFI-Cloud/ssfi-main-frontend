@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import NewsDetailClient from './NewsDetailClient';
 import { ArticleSchema, BreadcrumbSchema } from '@/components/seo/StructuredData';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.ssfiskate.com/api/v1';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://ssfiskate.com';
-const API_BASE = API_URL.replace('/api/v1', '');
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -34,10 +34,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  // resolveImageUrl handles disk paths, full URLs, /images/* (local
+  // public folder), and legacy data: base64 from the pre-fix CMS uploads.
   const imageUrl = article.featuredImage
-    ? article.featuredImage.startsWith('http')
-      ? article.featuredImage
-      : `${API_BASE}${article.featuredImage}`
+    ? resolveImageUrl(article.featuredImage)
     : `${BASE_URL}/images/og/og-default.jpg`;
 
   return {
