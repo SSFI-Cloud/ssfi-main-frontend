@@ -18,6 +18,14 @@ interface Program {
   includesText: string | null; totalSeats: number; filledSeats: number;
   eligibilityCriteria: string | null; status: string;
   organizedBy: string | null; approvedBy: string | null;
+  // Backend-derived effective registration state — see backend
+  // utils/programStatus.ts. Optional so older API responses don't break.
+  registrationStatus?: {
+    open: boolean;
+    code: 'OPEN' | 'CLOSED' | 'FULL' | 'CANCELLED' | 'DRAFT';
+    label: string;
+    reason: string;
+  };
 }
 
 const LEVEL_CFG: Record<number, { label: string; gradient: string; border: string; iconBg: string }> = {

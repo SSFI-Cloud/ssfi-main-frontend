@@ -34,6 +34,15 @@ interface Program {
   status: string;
   organizedBy: string | null;
   approvedBy: string | null;
+  // Backend-derived effective registration state — see backend
+  // utils/programStatus.ts. Optional on the type so older API
+  // responses (during a partial deploy) don't break the build.
+  registrationStatus?: {
+    open: boolean;
+    code: 'OPEN' | 'CLOSED' | 'FULL' | 'CANCELLED' | 'DRAFT';
+    label: string;
+    reason: string;
+  };
 }
 
 const CATEGORY_CFG: Record<string, { label: string; gradient: string; border: string; iconBg: string; icon: typeof Zap }> = {
