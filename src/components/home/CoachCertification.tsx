@@ -22,6 +22,11 @@ const fallbackBatch = {
   fee: '₹5,000',
   deadline: 'TBA',
   id: null as number | null,
+  // Effective status — backed by backend utils/programStatus.ts when
+  // available, falls back to "no program" when the homepage has nothing
+  // to show.
+  registrationOpen: false,
+  statusLabel: 'COMING SOON',
 };
 
 interface CoachCertificationProps {
@@ -31,10 +36,26 @@ interface CoachCertificationProps {
 export default function CoachCertification({ programs }: CoachCertificationProps) {
   const [batch, setBatch] = useState(fallbackBatch);
 
-  // Accept programs from parent (aggregate endpoint)
+  // Accept programs from parent (aggregate endpoint). We prefer the
+  // first program whose backend-derived registrationStatus is OPEN —
+  // that way the homepage hero never advertises an expired batch as
+  // "Registration Open".
   useEffect(() => {
     if (Array.isArray(programs) && programs.length > 0) {
-      const p = programs[0]; // Show first active program
+      const open = programs.find(x => x?.registrationStatus?.open) || programs[0];
+      const p = open;
+      // Fall back to a client-side compute on stale responses where the
+      // backend hasn't been redeployed yet.
+      const fallbackOpen = (() => {
+        if (!p.isActive || p.status === 'CANCELLED') return false;
+        const dl = p.lastDateToApply ? new Date(p.lastDateToApply) : null;
+        if (dl) dl.setHours(23, 59, 59, 999);
+        if (dl && dl < new Date()) return false;
+        if (p.totalSeats > 0 && p.filledSeats >= p.totalSeats) return false;
+        return ['PUBLISHED', 'REGISTRATION_OPEN'].includes(p.status);
+      })();
+      const isOpen = p.registrationStatus?.open ?? fallbackOpen;
+      const label = (p.registrationStatus?.label || (isOpen ? 'Registration Open' : 'Registration Closed')).toUpperCase();
       setBatch({
         title: p.title,
         date: new Date(p.startDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) + ' - ' + new Date(p.endDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -44,6 +65,8 @@ export default function CoachCertification({ programs }: CoachCertificationProps
         fee: '₹' + Number(p.price).toLocaleString(),
         deadline: new Date(p.lastDateToApply).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }),
         id: p.id,
+        registrationOpen: isOpen,
+        statusLabel: label,
       });
     }
   }, [programs]);
@@ -101,8 +124,12 @@ export default function CoachCertification({ programs }: CoachCertificationProps
                       <h3 className="text-white font-headline font-bold">{batch.title}</h3>
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-                    {batch.spotsLeft > 0 ? 'OPEN' : 'COMING SOON'}
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                    batch.registrationOpen
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                      : 'bg-slate-500/20 text-slate-300 border-slate-500/30'
+                  }`}>
+                    {batch.statusLabel}
                   </span>
                 </div>
               </div>
@@ -112,15 +139,30 @@ export default function CoachCertification({ programs }: CoachCertificationProps
                   <div className="flex items-center gap-3 text-white/60"><MapPin className="w-5 h-5 text-emerald-400" /><span className="text-sm">{batch.location}</span></div>
                   <div className="flex items-center gap-3 text-white/60"><Clock className="w-5 h-5 text-teal-400" /><span className="text-sm">Deadline: {batch.deadline}</span></div>
                 </div>
-                <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <div className={`flex items-center justify-between p-4 rounded-xl border ${
+                  batch.registrationOpen
+                    ? 'bg-emerald-500/10 border-emerald-500/20'
+                    : 'bg-slate-500/10 border-slate-500/20'
+                }`}>
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <p className="text-emerald-400 text-sm font-bold">Registration Open</p>
+                    <span className={`w-2 h-2 rounded-full ${batch.registrationOpen ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                    <p className={`text-sm font-bold ${batch.registrationOpen ? 'text-emerald-400' : 'text-slate-300'}`}>
+                      {batch.registrationOpen ? 'Registration Open' : (batch.statusLabel || 'Registration Closed')}
+                    </p>
                   </div>
                 </div>
-                <Link href="/coach-certification" className="group w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all duration-300">
-                  Reserve Your Spot <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-                </Link>
+                {batch.registrationOpen ? (
+                  <Link href="/coach-certification" className="group w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all duration-300">
+                    Reserve Your Spot <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                ) : (
+                  // Closed batches: keep the CTA visible (so users still
+                  // discover the program) but make it clear the link
+                  // points to the listing, not a registration form.
+                  <Link href="/coach-certification" className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white/80 hover:text-white border border-white/10 font-semibold transition-all duration-300">
+                    View All Programs <ArrowRight className="w-5 h-5" />
+                  </Link>
+                )}
               </div>
             </div>
           </motion.div>

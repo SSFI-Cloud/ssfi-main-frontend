@@ -234,7 +234,17 @@ export default function BeginnerCertClient() {
                       {catPrograms.map((p, i) => {
                         const spotsLeft = Math.max(0, p.totalSeats - p.filledSeats);
                         const pct = p.totalSeats > 0 ? (p.filledSeats / p.totalSeats) * 100 : 0;
-                        const deadlinePassed = new Date(p.lastDateToApply) < new Date();
+                        // Prefer backend-derived registrationStatus
+                        // (deadline + capacity + admin intent rolled
+                        // into one). Falls back to a client-side
+                        // deadline check on stale responses.
+                        const deadlineLocal = p.lastDateToApply ? new Date(p.lastDateToApply) : null;
+                        if (deadlineLocal) deadlineLocal.setHours(23, 59, 59, 999);
+                        const deadlinePassed = p.registrationStatus
+                          ? !p.registrationStatus.open
+                          : (deadlineLocal ? deadlineLocal < new Date() : false);
+                        const closedLabel = p.registrationStatus?.label
+                          || (deadlinePassed ? 'Deadline Passed' : (spotsLeft <= 0 ? 'Fully Booked' : 'Registration Closed'));
                         const pcfg = getCfg(p.category);
 
                         return (
@@ -317,7 +327,7 @@ export default function BeginnerCertClient() {
                                 </Link>
                               ) : (
                                 <div className="w-full py-3 rounded-xl bg-gray-100 text-gray-400 text-sm font-medium text-center">
-                                  {deadlinePassed ? 'Deadline Passed' : 'Fully Booked'}
+                                  {closedLabel}
                                 </div>
                               )}
                             </div>

@@ -29,17 +29,42 @@ interface Program {
   organizedBy: string | null;
   _count?: { registrations: number };
   createdAt: string;
+  // Backend-derived effective status (deadline + capacity + admin
+  // intent rolled into one). Falls back to a client-side compute on
+  // older API responses for safety.
+  registrationStatus?: {
+    open: boolean;
+    code: 'OPEN' | 'CLOSED' | 'FULL' | 'CANCELLED' | 'DRAFT';
+    label: string;
+    reason: string;
+  };
 }
 
+// Visual config keyed by the backend-derived `registrationStatus.code`.
+// We deliberately do NOT key off `program.status` anymore — that's the
+// admin's intent flag and ignores deadline / seat-fill, so it kept
+// showing "REGISTRATION_OPEN" after expiry. See backend
+// utils/programStatus.ts for the rules.
 const STATUS_CFG: Record<string, { bg: string; text: string }> = {
-  DRAFT: { bg: 'bg-gray-100', text: 'text-gray-600' },
-  PUBLISHED: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  REGISTRATION_OPEN: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  REGISTRATION_CLOSED: { bg: 'bg-slate-100', text: 'text-slate-700' },
-  ONGOING: { bg: 'bg-teal-100', text: 'text-teal-700' },
-  COMPLETED: { bg: 'bg-teal-100', text: 'text-teal-700' },
-  CANCELLED: { bg: 'bg-red-100', text: 'text-red-700' },
+  OPEN:      { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  CLOSED:    { bg: 'bg-slate-100',   text: 'text-slate-700' },
+  FULL:      { bg: 'bg-amber-100',   text: 'text-amber-700' },
+  CANCELLED: { bg: 'bg-red-100',     text: 'text-red-700' },
+  DRAFT:     { bg: 'bg-gray-100',    text: 'text-gray-600' },
 };
+
+// Client-side fallback for the rare case the API response is missing
+// the new field (cached old response, mid-deploy, etc.).
+function computeFallbackStatus(p: Program): { code: keyof typeof STATUS_CFG; label: string; open: boolean } {
+  if (!p.isActive || p.status === 'CANCELLED') return { code: 'CANCELLED', label: 'Cancelled', open: false };
+  const deadline = p.lastDateToApply ? new Date(p.lastDateToApply) : null;
+  if (deadline) deadline.setHours(23, 59, 59, 999);
+  if (deadline && deadline < new Date()) return { code: 'CLOSED', label: 'Registration Closed', open: false };
+  if (p.totalSeats > 0 && p.filledSeats >= p.totalSeats) return { code: 'FULL', label: 'Fully Booked', open: false };
+  if (['PUBLISHED', 'REGISTRATION_OPEN'].includes(p.status)) return { code: 'OPEN', label: 'Registration Open', open: true };
+  if (p.status === 'REGISTRATION_CLOSED') return { code: 'CLOSED', label: 'Registration Closed', open: false };
+  return { code: 'DRAFT', label: 'Coming Soon', open: false };
+}
 
 const LEVEL_CFG: Record<number, { label: string; gradient: string; border: string }> = {
   1: { label: 'Level 1 — Certified Coach', gradient: 'from-sky-500 to-cyan-500', border: 'border-sky-200' },
@@ -145,7 +170,10 @@ export default function CoachCertificationPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filtered.map((p, i) => {
             const lvl = LEVEL_CFG[p.level] || LEVEL_CFG[1];
-            const st = STATUS_CFG[p.status] || STATUS_CFG.DRAFT;
+            // Use the backend-derived status when present; fall back to
+            // a client compute on stale responses.
+            const eff = p.registrationStatus || computeFallbackStatus(p);
+            const st = STATUS_CFG[eff.code] || STATUS_CFG.DRAFT;
             const seatsPercent = p.totalSeats > 0 ? (p.filledSeats / p.totalSeats) * 100 : 0;
             return (
               <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
@@ -158,7 +186,7 @@ export default function CoachCertificationPage() {
                       </span>
                       <h3 className="text-lg font-semibold text-gray-900">{p.title}</h3>
                     </div>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>{p.status.replace(/_/g, ' ')}</span>
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${st.bg} ${st.text}`}>{eff.label}</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mb-4 text-sm">

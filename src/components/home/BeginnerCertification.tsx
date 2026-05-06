@@ -25,6 +25,8 @@ const fallbackBatch = {
   fee: '₹2,000',
   deadline: 'TBA',
   id: null as number | null,
+  registrationOpen: false,
+  statusLabel: 'COMING SOON',
 };
 
 interface BeginnerCertificationProps {
@@ -34,10 +36,22 @@ interface BeginnerCertificationProps {
 export default function BeginnerCertification({ programs }: BeginnerCertificationProps) {
   const [batch, setBatch] = useState(fallbackBatch);
 
-  // Accept programs from parent (aggregate endpoint)
+  // Accept programs from parent (aggregate endpoint). Prefer the first
+  // program whose backend-derived registrationStatus is OPEN so the
+  // hero never advertises an expired batch as "Registration Open".
   useEffect(() => {
     if (Array.isArray(programs) && programs.length > 0) {
-      const p = programs[0]; // Show first active program
+      const p = programs.find(x => x?.registrationStatus?.open) || programs[0];
+      const fallbackOpen = (() => {
+        if (!p.isActive || p.status === 'CANCELLED') return false;
+        const dl = p.lastDateToApply ? new Date(p.lastDateToApply) : null;
+        if (dl) dl.setHours(23, 59, 59, 999);
+        if (dl && dl < new Date()) return false;
+        if (p.totalSeats > 0 && p.filledSeats >= p.totalSeats) return false;
+        return ['PUBLISHED', 'REGISTRATION_OPEN'].includes(p.status);
+      })();
+      const isOpen = p.registrationStatus?.open ?? fallbackOpen;
+      const label = (p.registrationStatus?.label || (isOpen ? 'Registration Open' : 'Registration Closed')).toUpperCase();
       setBatch({
         title: p.title,
         date:
@@ -62,6 +76,8 @@ export default function BeginnerCertification({ programs }: BeginnerCertificatio
           year: 'numeric',
         }),
         id: p.id,
+        registrationOpen: isOpen,
+        statusLabel: label,
       });
     }
   }, [programs]);
@@ -161,8 +177,12 @@ export default function BeginnerCertification({ programs }: BeginnerCertificatio
                       <h3 className="text-white font-headline font-bold">{batch.title}</h3>
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-                    {batch.spotsLeft > 0 ? 'OPEN' : 'COMING SOON'}
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                    batch.registrationOpen
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                      : 'bg-slate-500/20 text-slate-300 border-slate-500/30'
+                  }`}>
+                    {batch.statusLabel}
                   </span>
                 </div>
               </div>
@@ -195,10 +215,16 @@ export default function BeginnerCertification({ programs }: BeginnerCertificatio
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <div className={`flex items-center justify-between p-4 rounded-xl border ${
+                  batch.registrationOpen
+                    ? 'bg-emerald-500/10 border-emerald-500/20'
+                    : 'bg-slate-500/10 border-slate-500/20'
+                }`}>
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <p className="text-emerald-400 text-sm font-bold">Registration Open</p>
+                    <span className={`w-2 h-2 rounded-full ${batch.registrationOpen ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                    <p className={`text-sm font-bold ${batch.registrationOpen ? 'text-emerald-400' : 'text-slate-300'}`}>
+                      {batch.registrationOpen ? 'Registration Open' : (batch.statusLabel || 'Registration Closed')}
+                    </p>
                   </div>
                   {!batch.id && (
                     <div className="flex items-center gap-1 text-white/30">
@@ -209,10 +235,16 @@ export default function BeginnerCertification({ programs }: BeginnerCertificatio
                 </div>
 
                 <Link
-                  href={registerHref}
-                  className="group w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all duration-300"
+                  href={batch.registrationOpen ? registerHref : '/beginner-certification'}
+                  className={`group w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold transition-all duration-300 ${
+                    batch.registrationOpen
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40'
+                      : 'bg-white/[0.06] hover:bg-white/[0.1] text-white/80 hover:text-white border border-white/10'
+                  }`}
                 >
-                  {batch.id ? 'Enroll Your Child' : 'View Programs'}
+                  {batch.registrationOpen
+                    ? (batch.id ? 'Enroll Your Child' : 'View Programs')
+                    : 'View All Programs'}
                   <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
