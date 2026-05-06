@@ -27,7 +27,6 @@ interface Program {
   ageGroup: string | null;
   status: string;
   isActive: boolean;
-  lastDateToApply: string;
   _count?: { registrations: number };
   // Backend-derived effective status — see backend utils/programStatus.ts.
   registrationStatus?: {
