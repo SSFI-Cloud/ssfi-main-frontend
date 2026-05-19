@@ -1,11 +1,11 @@
 ﻿'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Home, ToggleLeft, ToggleRight, GripVertical, Loader2, X, Save, Users } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Edit, Trash2, Home, ToggleLeft, ToggleRight, GripVertical, Loader2, X, Save, Users, Upload, ImageIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/lib/api/client';
-import ImageUpload from '@/components/admin/ImageUpload';
 import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
+import { compressImage } from '@/lib/utils/imageCompress';
 
 interface TeamMember {
   id: number;
@@ -34,6 +34,36 @@ export default function TeamManagerPage() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  // Team photos are stored as base64 data URIs in the DB (LongText
+  // column) rather than as paths to disk files. Reason: the previous
+  // disk-based approach kept losing photos when Railway recycled the
+  // /uploads volume — admin would upload, photo would render for a
+  // few days, then a redeploy would 404 the file. Storing the actual
+  // bytes in the DB row means the photo survives every infra event.
+  // The team table only has ~5-10 rows ever, so the DB cost is trivial.
+  const handlePhotoSelect = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      // Compress to a portrait-ish target. 800x800 max keeps the
+      // base64 payload under ~150KB for typical photos — small enough
+      // for LongText, large enough to look sharp in the 32×32 admin
+      // list AND the 160×160 homepage circle.
+      const b64 = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.85 });
+      setForm(f => ({ ...f, photo: b64 }));
+    } catch (e: any) {
+      toast.error('Failed to process image. Try a smaller file.');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -227,13 +257,52 @@ export default function TeamManagerPage() {
                   placeholder="Short bio or description..." />
               </div>
 
-              <ImageUpload
-                type="team"
-                label="Photo"
-                value={form.photo}
-                onChange={url => setForm(f => ({ ...f, photo: url || undefined }))}
-                hint="480 × 600 portrait — face stays in frame"
-              />
+              {/* Photo — stored as base64 dataURI directly in the DB
+                  (LongText). Bypasses the old multipart-upload-then-
+                  serve-from-disk pipeline that kept losing files on
+                  Railway redeploys. See handlePhotoSelect comment. */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Photo</label>
+                <div className="flex items-start gap-4">
+                  <div className="w-24 h-28 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {form.photo ? (
+                      <img src={resolveImageUrl(form.photo)} alt="Photo preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-7 h-7 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={photoUploading}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-medium disabled:opacity-50"
+                    >
+                      {photoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      {form.photo ? 'Replace photo' : 'Upload photo'}
+                    </button>
+                    {form.photo && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, photo: undefined }))}
+                        className="ml-2 inline-flex items-center gap-1.5 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+                      >
+                        <X className="w-3.5 h-3.5" /> Remove
+                      </button>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      480 × 600 portrait recommended. Auto-compressed to ~150&nbsp;KB. Stored directly in the database so it survives every server redeploy.
+                    </p>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => handlePhotoSelect(e.target.files?.[0] || null)}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
               <button onClick={closeForm} className="px-4 py-2 text-gray-500 hover:text-gray-900 hover:bg-white rounded-xl transition-colors">Cancel</button>

@@ -15,9 +15,15 @@ interface TeamMember {
   linkedinUrl?: string;
 }
 
+// Names-only fallback. Earlier this had `photo: '/images/team/*.webp'`
+// pointing at files that don't actually exist in `public/images/team/`,
+// so when the CMS team table is empty (or the API fails) the homepage
+// rendered with broken-image circles. Drop the photo paths entirely —
+// the renderer falls back to a Users icon placeholder when photo is
+// missing, which reads cleaner.
 const FALLBACK_TEAM: TeamMember[] = [
-  { id: '1', name: 'Shri S. Muruganantham', role: 'General Secretary', photo: '/images/team/muruganantham.webp' },
-  { id: '2', name: 'Mr. Krishna Baisware', role: 'President', photo: '/images/team/krishna-baisware.webp' },
+  { id: '1', name: 'Shri S. Muruganantham', role: 'General Secretary' },
+  { id: '2', name: 'Mr. Krishna Baisware', role: 'President' },
 ];
 
 interface OurTeamProps {
