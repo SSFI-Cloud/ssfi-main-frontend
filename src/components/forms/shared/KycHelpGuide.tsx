@@ -22,7 +22,7 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Smartphone, UserCircle, IdCard, ShieldCheck, MousePointerClick,
+  X, Smartphone, UserCircle, CreditCard, ShieldCheck, MousePointerClick,
   AlertTriangle, Sparkles, CheckCircle2, Info, ArrowRight, ExternalLink,
 } from 'lucide-react';
 
@@ -170,7 +170,7 @@ export default function KycHelpGuide({ open, onClose }: Props) {
                       detail="Then complete OTP on your registered mobile / email."
                     />
                     <LoginMethodCard
-                      icon={<IdCard className="w-5 h-5" />}
+                      icon={<CreditCard className="w-5 h-5" />}
                       title="Other ID"
                       desc="Pick Aadhaar, PAN, or Driving License from the dropdown, then enter the number."
                       detail="OTP comes to the mobile linked to that ID."
