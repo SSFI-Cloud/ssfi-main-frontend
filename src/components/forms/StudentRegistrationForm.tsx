@@ -44,6 +44,10 @@ export default function StudentRegistrationForm() {
   const [mode, setMode] = useState<Mode>('choose');
   const [renewMember, setRenewMember] = useState<MemberLookupResult | null>(null);
   const [renewKycResult, setRenewKycResult] = useState<KycResult | null>(null);
+  // KYC save lifecycle — surfaces failures that the previous silent
+  // catch was hiding. See handleKycVerified comment for full reasoning.
+  const [kycSaving, setKycSaving] = useState(false);
+  const [kycSaveFailed, setKycSaveFailed] = useState(false);
   const [renewProfile, setRenewProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   // Default expanded. Used to be collapsed with a small "Review or update
@@ -77,6 +81,55 @@ export default function StudentRegistrationForm() {
     api.get('/registration-windows/check/renewal-status', { params: { type: 'student' } })
       .then(res => { if (!res.data?.data?.renewalEnabled) setMode('new'); })
       .catch(() => {});
+  }, []);
+
+  // Resume from a "hand off to student" link — see DocumentsStep for the
+  // sister code that creates the session. When `?resume=<token>` is
+  // present, fetch the saved formData snapshot, rehydrate the wizard
+  // store, and jump straight to the last step. No re-verification of
+  // Aadhaar; the green pill shows because formData.kycVerified=true.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('resume');
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get(`/kyc/sessions/${token}`);
+        if (cancelled) return;
+        const data = res.data?.data;
+        if (!data) return;
+        // Hydrate the wizard store with the teacher's snapshot.
+        if (data.formData && typeof data.formData === 'object') {
+          updateFormData(data.formData);
+        } else {
+          // KYC-only fallback (old sessions without formData).
+          updateFormData({
+            kycVerified: true,
+            kycVerifiedName: data.fullName,
+            kycVerifiedDob: data.dob,
+            kycVerifiedGender: data.gender,
+            kycProfileImage: data.profileImage,
+            phone: data.phone || '',
+            email: data.email || '',
+          });
+        }
+        // Mark earlier steps complete and jump to the documents step
+        // (KYC + photo + terms). The user can navigate back to review.
+        for (let s = 1; s <= 5; s++) markStepComplete(s);
+        setCurrentStep(6);
+        setMode('new');
+        toast.success('Resumed where the previous device left off.');
+      } catch (e: any) {
+        const msg = e?.response?.status === 410
+          ? 'This resume link has expired. Please start a fresh registration.'
+          : 'Could not load the resume link. Please start a fresh registration.';
+        toast.error(msg);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleStepComplete = (stepData: Partial<StudentRegistrationData>) => {
@@ -216,26 +269,75 @@ export default function StudentRegistrationForm() {
     }
   };
 
-  // Called when KYC completes (new verification) — persist to backend
+  // Called when KYC completes (new verification) — persist to backend.
+  //
+  // CRITICAL behaviour: teachers report that closing the page right
+  // after the green ✓ shows leaves the DB with kycVerified=false for
+  // some students — the next time the student opens the renewal, Step
+  // 1 restarts. Root cause was a silent catch that ate any error
+  // (network blip, transient 5xx). Now:
+  //   1. Retry up to 3 times with backoff.
+  //   2. On hard failure, surface a toast and set a sticky banner
+  //      (`kycSaveFailed`) so the teacher knows it didn't persist.
+  //   3. Block the unload with onbeforeunload while the save is in
+  //      flight or has failed, so a "close and hand off" doesn't drop
+  //      the result on the floor.
   const handleKycVerified = async (result: KycResult) => {
     setRenewKycResult(result);
     if (!renewMember) return;
-    try {
-      await api.post('/affiliations/renew/save-kyc', {
-        uid: renewMember.uid,
-        fullName: result.fullName,
-        dob: result.dob,
-        gender: result.gender,
-        photo: result.profileImage,
-      });
-      // Update local profile state to reflect KYC is now done
+
+    setKycSaving(true);
+    setKycSaveFailed(false);
+    let saved = false;
+    for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
+      try {
+        await api.post('/affiliations/renew/save-kyc', {
+          uid: renewMember.uid,
+          fullName: result.fullName,
+          dob: result.dob,
+          gender: result.gender,
+          photo: result.profileImage,
+        });
+        saved = true;
+      } catch (e) {
+        if (attempt < 3) {
+          // 600ms, 1.2s — keeps total wait under 2s while still
+          // smoothing over a transient blip.
+          await new Promise(r => setTimeout(r, 600 * attempt));
+        }
+      }
+    }
+    setKycSaving(false);
+
+    if (saved) {
       setRenewProfile((prev: any) => prev ? {
         ...prev, kycVerified: true, kycVerifiedName: result.fullName, kycVerifiedDob: result.dob,
       } : prev);
-    } catch {
-      // Non-fatal — payment can still proceed
+    } else {
+      setKycSaveFailed(true);
+      toast.error('KYC verified but couldn\'t save to server. Please stay on this page and tap Retry.');
     }
   };
+
+  // Manual retry handler, invoked from the failure banner.
+  const retryKycSave = async () => {
+    if (!renewKycResult || !renewMember) return;
+    await handleKycVerified(renewKycResult);
+  };
+
+  // Warn the user before they navigate away while the KYC save is
+  // pending or has failed. Without this, a teacher who closes the tab
+  // confidently after seeing the green ✓ will silently lose the result.
+  useEffect(() => {
+    const shouldWarn = kycSaving || kycSaveFailed;
+    if (!shouldWarn) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [kycSaving, kycSaveFailed]);
 
   // Save edited profile fields
   const handleSaveProfile = async () => {
@@ -460,6 +562,33 @@ export default function StudentRegistrationForm() {
                         colorScheme="emerald"
                         initialResult={renewKycResult}
                       />
+                    )}
+
+                    {/* Save lifecycle indicators — only render when relevant.
+                        kycSaving: the silent "writing to DB" state. Helps
+                        teachers wait rather than closing the page mid-save.
+                        kycSaveFailed: hard failure after retries. Teacher
+                        needs to tap Retry; closing the page right now loses
+                        the verification. */}
+                    {kycSaving && (
+                      <div className="mt-3 flex items-center gap-2 p-3 bg-sky-50 border border-sky-200 rounded-xl text-sky-700 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                        <span>Saving verification to server — please don&apos;t close this page yet…</span>
+                      </div>
+                    )}
+                    {kycSaveFailed && !kycSaving && (
+                      <div className="mt-3 flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-amber-900">Verification not saved</p>
+                          <p className="text-xs text-amber-800 mt-0.5">
+                            Identity was verified successfully but couldn&apos;t reach the server. Tap Retry — your verification is still valid.
+                          </p>
+                        </div>
+                        <button type="button" onClick={retryKycSave}
+                          className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg">
+                          Retry Save
+                        </button>
+                      </div>
                     )}
                   </div>
 

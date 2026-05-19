@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, Camera, X, Check, Loader2, AlertTriangle } from 'lucide-react';
+import { FileText, Camera, X, Check, Loader2, AlertTriangle, Copy, Share2 } from 'lucide-react';
 import { compressImage } from '@/lib/utils/imageCompress';
 import { useRegistrationStore } from '@/lib/store/registrationStore';
 import { StudentRegistrationData } from '@/types/student';
 import AadhaarKYCVerification from '@/components/forms/shared/AadhaarKYCVerification';
 import type { KycResult } from '@/lib/hooks/useKYC';
+import { api } from '@/lib/api/client';
+import { toast } from 'react-hot-toast';
 
 interface DocumentsStepProps {
   onComplete: (data: Partial<StudentRegistrationData>) => void;
@@ -33,6 +35,13 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
   );
   const [dobMismatch, setDobMismatch] = useState(false);
 
+  // Resume-link state — populated when handleKycVerified successfully
+  // creates a kyc_sessions row on the backend. Lets the teacher hand
+  // off to the student via a shareable URL.
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [resumeSaving, setResumeSaving] = useState(false);
+  const [resumeCopied, setResumeCopied] = useState(false);
+
   // File state
   const [termsAccepted, setTermsAccepted] = useState(formData.termsAccepted || false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(previews.profilePhoto || null);
@@ -40,7 +49,15 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
   const [useAadhaarPhoto, setUseAadhaarPhoto] = useState(false);
 
   // ── KYC Verified Handler ──
-  const handleKycVerified = useCallback((result: KycResult) => {
+  //
+  // After SurePass returns a successful KYC payload, we ALSO call
+  // POST /kyc/sessions to persist the entire wizard state (KYC + every
+  // form field filled so far). The backend returns a short token and
+  // we build a resume URL the teacher can share with the student.
+  // This is what cures the "started on teacher's device, can't continue
+  // on student's device" complaint — the student opens the URL, the
+  // form rehydrates, no re-verification needed.
+  const handleKycVerified = useCallback(async (result: KycResult) => {
     setKycResult(result);
 
     // Cross-check DOB with form data (Step 1)
@@ -54,7 +71,20 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
       }
     }
 
-    // Store KYC data in form
+    // Build the wizard formData snapshot that will be stuffed into the
+    // resume session. Includes the freshly-arrived KYC payload so the
+    // student opens directly into Step 6 with the green ✓ pill, not the
+    // DigiLocker launch button.
+    const mergedFormData = {
+      ...formData,
+      kycVerified: true,
+      kycVerifiedName: result.fullName,
+      kycVerifiedDob: result.dob,
+      kycVerifiedGender: result.gender,
+      kycProfileImage: result.profileImage || '',
+    };
+
+    // Store KYC data in form (local state)
     updateFormData({
       aadhaarNumber: result.maskedAadhaar?.replace(/\s/g, '').replace(/X/g, '0') || '', // Will be overridden by backend
       kycVerified: true,
@@ -63,7 +93,51 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
       kycVerifiedGender: result.gender,
       kycProfileImage: result.profileImage || '',
     });
-  }, [formData.dateOfBirth, updateFormData]);
+
+    // Save resume session — best-effort, retry 3x. If it fails we
+    // simply don't show the resume URL; the local flow continues.
+    setResumeSaving(true);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await api.post('/kyc/sessions', {
+          fullName: result.fullName,
+          dob: result.dob,
+          gender: result.gender,
+          profileImage: result.profileImage,
+          phone: formData.phone || '',
+          email: formData.email || '',
+          formData: mergedFormData,
+        });
+        const token = res.data?.data?.token;
+        if (token) {
+          const url = `${window.location.origin}/register/student?resume=${token}`;
+          setResumeUrl(url);
+        }
+        break;
+      } catch {
+        if (attempt < 3) await new Promise(r => setTimeout(r, 600 * attempt));
+      }
+    }
+    setResumeSaving(false);
+  }, [formData, updateFormData]);
+
+  const copyResumeUrl = () => {
+    if (!resumeUrl) return;
+    navigator.clipboard.writeText(resumeUrl);
+    setResumeCopied(true);
+    toast.success('Resume link copied');
+    setTimeout(() => setResumeCopied(false), 2500);
+  };
+
+  const shareResumeViaWhatsApp = () => {
+    if (!resumeUrl) return;
+    const name = kycResult?.fullName || 'the student';
+    const msg = encodeURIComponent(
+      `Hi! ${name}'s Aadhaar KYC for SSFI registration is done. ` +
+      `Open this link on your phone to finish the registration (no re-verification needed): ${resumeUrl}`
+    );
+    window.open(`https://wa.me/?text=${msg}`, '_blank');
+  };
 
   // ── Profile Photo Choice from KYC ──
   const handleProfilePhotoChoice = useCallback((useAadhaar: boolean, base64?: string) => {
@@ -168,6 +242,46 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
         colorScheme="green"
         initialResult={kycResult}
       />
+
+      {/* Resume Link — appears after KYC succeeds. Teachers / parents
+          who completed KYC on their device can share this URL with the
+          student to finish on a different device without re-doing the
+          Aadhaar OTP / DigiLocker flow. */}
+      {kycResult?.verified && (resumeSaving || resumeUrl) && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+          {resumeSaving && !resumeUrl ? (
+            <div className="flex items-center gap-2 text-sky-700 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving so you can hand off to the student…
+            </div>
+          ) : resumeUrl ? (
+            <>
+              <p className="text-sm font-semibold text-sky-900 mb-1">
+                Continuing on the student&apos;s device?
+              </p>
+              <p className="text-xs text-sky-700 mb-3">
+                Share this link — they&apos;ll open it and pick up exactly where you left off.
+                The Aadhaar verification doesn&apos;t need to be redone. Valid for 7 days.
+              </p>
+              <div className="flex items-center gap-2">
+                <input readOnly value={resumeUrl}
+                  className="flex-1 px-3 py-2 bg-white border border-sky-200 rounded-lg text-xs text-gray-700 truncate" />
+                <button type="button" onClick={copyResumeUrl}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-medium">
+                  {resumeCopied ? <><Check className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+                </button>
+                <button type="button" onClick={shareResumeViaWhatsApp}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium">
+                  <Share2 className="w-3.5 h-3.5" /> WhatsApp
+                </button>
+              </div>
+              <p className="text-xs text-sky-600 mt-2">
+                Or just continue filling on this device — both paths work.
+              </p>
+            </>
+          ) : null}
+        </div>
+      )}
 
       {/* DOB Mismatch Warning */}
       {dobMismatch && (
