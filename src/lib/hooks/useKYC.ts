@@ -106,11 +106,13 @@ export function useKYC() {
 
         if (data?.failed) {
           stopPolling();
-          const backendMsg = data?.errorDescription || data?.errorCode;
+          // The backend now translates SurePass's raw status strings
+          // (`user_skipped`, `expired`, etc.) into friendly sentences,
+          // so surface errorDescription verbatim — no robotic
+          // "Digilocker verification failed: <jargon>" prefix.
           setError(
-            backendMsg
-              ? `Digilocker verification failed: ${backendMsg}`
-              : 'Digilocker verification failed. Please try again.'
+            data?.errorDescription ||
+            'Digilocker verification didn\'t complete. Please tap Try Again and complete the consent screen on DigiLocker.'
           );
           setStep('error');
           return;
