@@ -272,11 +272,12 @@ export default function DistrictsPage() {
                 rows = res.data?.data?.districts || districts;
             }
             if (rows.length === 0) return;
-            const headers = ['District Name','Code','State','State Code','Secretary','Secretary Phone','Registered On','Clubs','Skaters','Created At'];
+            const headers = ['District Name','Code','State','State Code','Secretary','Secretary SSFI ID','Secretary Phone','Registered On','Clubs','Skaters','Created At'];
             const csvRows = [headers.join(',')];
             for (const d of rows) {
                 csvRows.push([
                     d.district_name, d.code, d.state_name, d.state_code, d.secretaryName,
+                    (d as any).secretaryUid || '',
                     d.secretaryPhone, d.secretaryRegisteredAt ? new Date(d.secretaryRegisteredAt).toLocaleDateString() : '',
                     String(d.clubsCount), String(d.skatersCount), d.created_at
                 ].map(v => `"${v}"`).join(','));
