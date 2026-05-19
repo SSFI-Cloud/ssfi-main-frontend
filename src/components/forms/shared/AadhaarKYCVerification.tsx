@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, CheckCircle2, AlertCircle, Loader2, RotateCcw, ExternalLink, Camera, Upload } from 'lucide-react';
+import { Shield, CheckCircle2, AlertCircle, Loader2, RotateCcw, ExternalLink, Camera, Upload, HelpCircle } from 'lucide-react';
 import { useKYC, KycResult } from '@/lib/hooks/useKYC';
+import KycHelpGuide from './KycHelpGuide';
 
 interface AadhaarKYCVerificationProps {
   onVerified: (result: KycResult) => void;
@@ -58,6 +59,24 @@ export default function AadhaarKYCVerification({
   // Local state
   const [profilePhotoChosen, setProfilePhotoChosen] = useState(false);
   const [preVerified, setPreVerified] = useState<KycResult | null>(initialResult);
+
+  // Help guide modal. Auto-opens once per session the first time a
+  // student lands on the KYC step — most drop-offs are because the
+  // student doesn't know what to expect on the DigiLocker screen.
+  // sessionStorage avoids re-popping for the same student between
+  // multiple steps of the same registration.
+  const [guideOpen, setGuideOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (preVerified?.verified) return;        // already done, no need
+    const seen = sessionStorage.getItem('ssfi.kyc.guide.seen');
+    if (!seen) {
+      setGuideOpen(true);
+      sessionStorage.setItem('ssfi.kyc.guide.seen', '1');
+    }
+    // intentional: only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Notify parent when verified
   useEffect(() => {
@@ -153,22 +172,34 @@ export default function AadhaarKYCVerification({
   // ── Error state ──
   if (step === 'error') {
     return (
-      <div className="rounded-xl bg-red-50 border border-red-200 p-5">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-red-800">Verification failed</p>
-            <p className="text-xs text-red-600 mt-1">{error || 'Something went wrong. Please try again.'}</p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="mt-3 text-xs px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 flex items-center gap-1"
-            >
-              <RotateCcw className="w-3 h-3" /> Try Again
-            </button>
+      <>
+        <div className="rounded-xl bg-red-50 border border-red-200 p-5">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-800">Verification didn&apos;t complete</p>
+              <p className="text-xs text-red-600 mt-1">{error || 'Something went wrong. Please try again.'}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="text-xs px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" /> Try Again
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuideOpen(true)}
+                  className="text-xs px-4 py-2 rounded-lg bg-white border border-red-200 text-red-700 hover:bg-red-50 flex items-center gap-1"
+                >
+                  <HelpCircle className="w-3 h-3" /> How does this work?
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+        <KycHelpGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+      </>
     );
   }
 
@@ -215,35 +246,57 @@ export default function AadhaarKYCVerification({
 
   // ── Idle / Initial state — "Verify with Digilocker" button ──
   return (
-    <div className={`rounded-xl border ${colors.border} p-5`}>
-      <div className="flex items-center gap-2 mb-3">
-        <Shield className={`w-4 h-4 ${colors.icon}`} />
-        <span className="text-sm font-semibold text-gray-900">Aadhaar KYC Verification</span>
-      </div>
-      <p className="text-xs text-gray-500 mb-4">
-        Verify your identity using Digilocker. A popup will open where you can authenticate with your Aadhaar-linked mobile number.
-      </p>
-
-      <button
-        type="button"
-        onClick={initializeDigilocker}
-        disabled={isLoading}
-        className={`w-full px-5 py-3 rounded-lg text-sm font-medium text-white ${colors.btn} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-      >
-        {isLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Shield className="w-4 h-4" />
-        )}
-        {isLoading ? 'Starting verification...' : 'Verify with Digilocker'}
-      </button>
-
-      {error && (
-        <div className="mt-3 flex items-start gap-2 text-xs text-red-600">
-          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-          <span>{error}</span>
+    <>
+      <div className={`rounded-xl border ${colors.border} p-5`}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Shield className={`w-4 h-4 ${colors.icon}`} />
+            <span className="text-sm font-semibold text-gray-900">Aadhaar KYC Verification</span>
+          </div>
+          {/* Help link — opens the illustrated guide. Auto-opens once
+              per session above so first-time students see it without
+              having to click. */}
+          <button
+            type="button"
+            onClick={() => setGuideOpen(true)}
+            className={`inline-flex items-center gap-1.5 text-xs font-medium ${colors.text} hover:underline`}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            See how it works
+          </button>
         </div>
-      )}
-    </div>
+
+        <p className="text-xs text-gray-500 mb-4">
+          Verify your identity using DigiLocker — a free Govt of India service. A popup will open where you sign in (mobile / username / Aadhaar) and tap <span className="font-semibold text-gray-700">Allow</span> on the consent screen.
+        </p>
+
+        <button
+          type="button"
+          onClick={initializeDigilocker}
+          disabled={isLoading}
+          className={`w-full px-5 py-3 rounded-lg text-sm font-medium text-white ${colors.btn} disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+        >
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Shield className="w-4 h-4" />
+          )}
+          {isLoading ? 'Starting verification...' : 'Verify with Digilocker'}
+        </button>
+
+        {error && (
+          <div className="mt-3 flex items-start gap-2 text-xs text-red-600">
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <p className="text-[11px] text-gray-400 mt-3 text-center">
+          Stuck? <button type="button" onClick={() => setGuideOpen(true)} className="underline hover:text-gray-600">View the step-by-step guide</button> · We never see your Aadhaar number.
+        </p>
+      </div>
+
+      <KycHelpGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+    </>
   );
 }
