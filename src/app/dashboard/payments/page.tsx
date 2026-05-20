@@ -205,6 +205,32 @@ export default function PaymentsPage() {
         }
     };
 
+    // Bulk-verify every PENDING payment against Razorpay's API. Replaces
+    // having to click the refresh icon on each pending row individually —
+    // for the recent 30 days of PENDING payments we ask Razorpay for the
+    // real status, and any that turn out to be paid get confirmed + post-
+    // payment actions (auto-approve student / send welcome email) run
+    // automatically. Older PENDINGs (>30d) are skipped to avoid burning
+    // Razorpay API quota on long-abandoned attempts.
+    const [bulkVerifyLoading, setBulkVerifyLoading] = useState(false);
+    const handleVerifyAllPending = async () => {
+        setBulkVerifyLoading(true);
+        const t = toast.loading('Reconciling with Razorpay…');
+        try {
+            const res = await api.post('/payments/admin/verify-all-pending');
+            const data = (res.data as any)?.data ?? {};
+            const msg = (res.data as any)?.message
+                || `Scanned ${data.scanned ?? 0} • ${data.confirmed ?? 0} confirmed • ${data.stillPending ?? 0} still pending • ${data.errored ?? 0} errored`;
+            toast.success(msg, { id: t, duration: 6000 });
+            fetchPayments();
+            fetchStats();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message ?? 'Bulk reconcile failed', { id: t });
+        } finally {
+            setBulkVerifyLoading(false);
+        }
+    };
+
     const formatCurrency = (n: number) =>
         new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 
@@ -227,10 +253,24 @@ export default function PaymentsPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Payments & Transactions</h1>
                     <p className="text-gray-500 mt-1">Manage and track all financial transactions</p>
                 </div>
-                <button onClick={handleExport} disabled={exporting}
-                    className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 flex items-center gap-2 border border-gray-200 self-start disabled:opacity-50">
-                    {exporting ? <><Loader2 className="w-4 h-4 animate-spin" /> Exporting...</> : <><Download className="w-4 h-4" /> Export Report</>}
-                </button>
+                <div className="flex items-center gap-2 self-start">
+                    {user?.role === 'GLOBAL_ADMIN' && (
+                        <button
+                            onClick={handleVerifyAllPending}
+                            disabled={bulkVerifyLoading}
+                            title="Ask Razorpay for the latest status of every PENDING payment from the last 30 days, and auto-confirm any that have been paid."
+                            className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 flex items-center gap-2 border border-blue-200 disabled:opacity-50"
+                        >
+                            {bulkVerifyLoading
+                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Reconciling…</>
+                                : <><RefreshCw className="w-4 h-4" /> Refresh All Pending</>}
+                        </button>
+                    )}
+                    <button onClick={handleExport} disabled={exporting}
+                        className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-100 flex items-center gap-2 border border-gray-200 disabled:opacity-50">
+                        {exporting ? <><Loader2 className="w-4 h-4 animate-spin" /> Exporting...</> : <><Download className="w-4 h-4" /> Export Report</>}
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}
