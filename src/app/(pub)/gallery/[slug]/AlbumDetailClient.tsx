@@ -40,10 +40,24 @@ interface AlbumData {
     createdAt: string;
 }
 
-export default function AlbumDetailClient() {
+interface AlbumDetailClientProps {
+    initialAlbum?: AlbumData | null;
+}
+
+export default function AlbumDetailClient({ initialAlbum }: AlbumDetailClientProps = {}) {
     const params = useParams();
     const albumSlug = params?.slug as string;
-    const { fetchPublicAlbumById, data: album, isLoading, error } = usePublicGalleryAlbum();
+    const { fetchPublicAlbumById, data: clientAlbum, isLoading: clientLoading, error } = usePublicGalleryAlbum();
+
+    // Prefer the server-fetched album (passed from page.tsx) — that data
+    // is already on the page when the browser hydrates, so images can
+    // start loading on the first paint. Previously this component
+    // re-fetched the same album client-side after hydration, adding a
+    // full API roundtrip (~2-4s on Railway cold start) before any image
+    // started downloading. Falling back to the client fetch keeps the
+    // page working if the server fetch failed.
+    const album = (clientAlbum as AlbumData | null) ?? initialAlbum ?? null;
+    const isLoading = !album && clientLoading;
 
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -51,12 +65,14 @@ export default function AlbumDetailClient() {
     const markImgError = (id: string) => setImgErrors(prev => new Set(prev).add(id));
 
     useEffect(() => {
-        if (albumSlug) {
+        // Only refetch client-side if the server didn't already provide
+        // the album (e.g. SSR fetch failed). Avoids the duplicate request.
+        if (albumSlug && !initialAlbum) {
             fetchPublicAlbumById(albumSlug);
         }
-    }, [albumSlug, fetchPublicAlbumById]);
+    }, [albumSlug, initialAlbum, fetchPublicAlbumById]);
 
-    const images = (album as AlbumData)?.items?.filter((item: GalleryItem) => item.type === 'IMAGE') || [];
+    const images = album?.items?.filter((item: GalleryItem) => item.type === 'IMAGE') || [];
 
     const openLightbox = useCallback((index: number) => {
         setLightboxIndex(index);
@@ -87,7 +103,7 @@ export default function AlbumDetailClient() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [lightboxOpen, lightboxIndex, closeLightbox, goToImage]);
 
-    const albumData = album as AlbumData | null;
+    const albumData = album;
 
     return (
         <div className="min-h-screen">
@@ -96,7 +112,7 @@ export default function AlbumDetailClient() {
                 <div className="absolute top-10 -left-40 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[140px]" />
                 <div className="absolute bottom-10 -right-40 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[140px]" />
 
-                <div className="container mx-auto px-4 relative z-10">
+                <div className="max-w-7xl mx-auto px-4 relative z-10">
                     {/* Back link */}
                     <Link
                         href="/gallery"
@@ -176,9 +192,20 @@ export default function AlbumDetailClient() {
             {/* ===================== PHOTO GRID — LIGHT ===================== */}
             {!isLoading && !error && albumData && (
                 <section className="py-12 md:py-16 bg-white">
-                    <div className="container mx-auto px-4">
+                    <div className="max-w-7xl mx-auto px-4">
                         {images.length > 0 ? (
-                            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4">
+                            // CSS Grid (was CSS multi-column). Multi-column
+                            // distributed photos top-to-bottom per column, so
+                            // the last column was always shorter than the
+                            // others — that's the "gap on the right" the
+                            // user saw. Grid fills row-by-row, so the only
+                            // empty space is the bottom-right of the final
+                            // partial row, which is the natural minimum.
+                            // Each cell uses aspect-[40/21] (= 1200/630) to
+                            // match the WebP crop the backend produces, so
+                            // photos render at their actual aspect with no
+                            // further cover-cropping inside the cell.
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                 {images.map((item: GalleryItem, index: number) => (
                                     <motion.div
                                         key={item.id}
@@ -186,15 +213,24 @@ export default function AlbumDetailClient() {
                                         whileInView={{ opacity: 1, y: 0 }}
                                         viewport={{ once: true }}
                                         transition={{ delay: Math.min(index * 0.05, 0.5) }}
-                                        className="break-inside-avoid mb-4 group cursor-pointer"
+                                        className="group cursor-pointer"
                                         onClick={() => openLightbox(index)}
                                     >
-                                        <div className={`relative rounded-xl overflow-hidden bg-gray-100${imgErrors.has(item.id) ? ' hidden' : ''}`}>
+                                        <div className={`relative aspect-[40/21] rounded-xl overflow-hidden bg-gray-100${imgErrors.has(item.id) ? ' hidden' : ''}`}>
                                             <img
                                                 src={resolveImageUrl(item.thumbnailUrl || item.url)}
                                                 alt={item.title || `Photo ${index + 1}`}
-                                                className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-500"
-                                                loading="lazy"
+                                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                // First 4 photos are above the fold on most screens —
+                                                // eager-load + high priority so they paint immediately.
+                                                // Rest stay lazy. decoding=async lets the browser hand
+                                                // off image decode to a worker thread so the main
+                                                // thread keeps responsive while the first row paints.
+                                                loading={index < 4 ? 'eager' : 'lazy'}
+                                                // fetchPriority is supported in modern browsers; TS DOM
+                                                // types lag, so cast through any.
+                                                {...({ fetchpriority: index < 4 ? 'high' : 'auto' } as any)}
+                                                decoding="async"
                                                 onError={() => markImgError(item.id)}
                                             />
                                             {/* Hover overlay */}

@@ -57,7 +57,11 @@ export default async function AlbumDetailPage({ params }: Props) {
           ]}
         />
       )}
-      <AlbumDetailClient />
+      {/* Pass the album we already fetched for metadata as initial
+          data, so the client doesn't have to re-fetch the same payload
+          before image loads can start. Saves a full API roundtrip
+          (Railway cold start adds 2-4s) on first paint. */}
+      <AlbumDetailClient initialAlbum={album} />
     </>
   );
 }
