@@ -58,7 +58,15 @@ function HierarchyNode({ name, role, photo, delay = 0 }: { name: string; role: s
       <div className="org-avatar relative w-20 h-20 md:w-24 md:h-24 rounded-full p-[2.5px] bg-gradient-to-br from-emerald-400 via-teal-400 to-sky-400">
         <div className="relative w-full h-full rounded-full overflow-hidden bg-gray-100">
           {photoUrl ? (
-            <Image src={photoUrl} alt={name} fill className="object-cover object-top" sizes="96px" />
+            // Plain <img> instead of next/image: photos are stored as
+            // base64 data: URIs in the DB, and next/image's optimizer
+            // silently fails on data URIs — produced the empty-circle
+            // bug despite the photo being saved. <img> works for all
+            // three URL shapes resolveImageUrl can return (data:, http,
+            // /images/). 96px avatar, photos ~150KB — optimizer not
+            // worth the failure mode.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoUrl} alt={name} className="absolute inset-0 w-full h-full object-cover object-top" />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100"><Users className="w-8 h-8 md:w-10 md:h-10 text-gray-300" /></div>
           )}

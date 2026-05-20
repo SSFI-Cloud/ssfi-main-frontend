@@ -2,9 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Image from 'next/image';
 import { Users } from 'lucide-react';
 import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
+// Note: deliberately NOT using next/image here. Team photos are stored
+// as base64 data: URIs in the DB (see ssfi-frontend/.../cms/team/page.tsx
+// for why) and Next.js Image's optimizer can't handle data URIs — it
+// silently renders nothing, which produced the empty-circle bug. A
+// plain <img> works for data:, http://, and /images/ alike. The
+// photos are 100–150KB and rendered at 160px, so we're not missing
+// anything by skipping the optimizer here.
 interface TeamMember {
   id: string;
   name: string;
@@ -111,12 +117,11 @@ export default function OurTeam({ members }: OurTeamProps) {
                   {/* Circular image — fixed size for uniformity */}
                   <div className="relative w-32 h-32 sm:w-36 sm:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden mb-4 ring-4 ring-white shadow-lg shadow-gray-200/60 group-hover:ring-emerald-200/60 group-hover:shadow-emerald-100/40 transition-all duration-300 flex-shrink-0">
                     {photoSrc ? (
-                      <Image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
                         src={photoSrc}
                         alt={`${member.name} - ${member.role}, SSFI`}
-                        fill
-                        className="object-cover object-top transition-transform duration-500 group-hover:scale-110"
-                        sizes="160px"
+                        className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-110"
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
