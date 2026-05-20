@@ -36,14 +36,18 @@ const CARD_ACCENTS = [
     { gradient: 'from-cyan-400 to-teal-500', bg: 'bg-cyan-50', text: 'text-cyan-600', iconBg: 'bg-cyan-100', border: 'hover:border-cyan-200', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
 ];
 
-/* ── 3D carousel transforms ── */
+/* ── 3D carousel transforms ──
+ * Offsets were tuned for 340-wide portrait cards. Cards are now 480-wide
+ * landscape (40:21, matching the 1200×630 CMS crop) so x-offsets scaled
+ * up by 480/340 ≈ 1.41 to preserve the peek-and-stack effect: 380→540,
+ * 600→850, 750→1060. RotateY/scale/z values are unchanged. */
 function getCardTransform(offset: number) {
     const abs = Math.abs(offset);
     const sign = offset < 0 ? -1 : offset > 0 ? 1 : 0;
     if (abs === 0) return { x: 0, rotateY: 0, scale: 1, z: 50, opacity: 1, zIndex: 10 };
-    if (abs === 1) return { x: sign * 380, rotateY: sign * -35, scale: 0.82, z: -80, opacity: 0.85, zIndex: 8 };
-    if (abs === 2) return { x: sign * 600, rotateY: sign * -45, scale: 0.65, z: -200, opacity: 0.5, zIndex: 5 };
-    return { x: sign * 750, rotateY: sign * -50, scale: 0.5, z: -300, opacity: 0.2, zIndex: 2 };
+    if (abs === 1) return { x: sign * 540, rotateY: sign * -35, scale: 0.82, z: -80, opacity: 0.85, zIndex: 8 };
+    if (abs === 2) return { x: sign * 850, rotateY: sign * -45, scale: 0.65, z: -200, opacity: 0.5, zIndex: 5 };
+    return { x: sign * 1060, rotateY: sign * -50, scale: 0.5, z: -300, opacity: 0.2, zIndex: 2 };
 }
 
 export default function GalleryPageClient() {
@@ -246,8 +250,10 @@ export default function GalleryPageClient() {
                                             {/* Top accent bar */}
                                             <div className={`h-1 bg-gradient-to-r ${ac.gradient}`} />
 
-                                            {/* Cover */}
-                                            <div className="aspect-[4/3] relative overflow-hidden">
+                                            {/* Cover — match the 1200×630 (40:21) aspect the CMS
+                                                 crops uploads to, so admins see the full image they
+                                                 uploaded instead of a center-cropped strip. */}
+                                            <div className="aspect-[40/21] relative overflow-hidden">
                                                 {album.coverImage && !imgErrors.has(album.id) ? (
                                                     <Image src={resolveImageUrl(album.coverImage)} alt={album.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" sizes="(max-width: 768px) 100vw, 33vw" unoptimized
                                                         onError={() => markImgError(album.id)} />

@@ -483,7 +483,11 @@ section {
   perspective-origin: center center;
   position: relative;
   width: 100%;
-  height: 520px;
+  /* Was 520 when cards were 440 tall (portrait). With landscape
+     480×252 cards we still want headroom for the rotated neighbour
+     cards, so 340 keeps the visual breathing without leaving a
+     huge empty band above/below. */
+  height: 340px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -500,10 +504,16 @@ section {
   justify-content: center;
 }
 
+/* Carousel cards match the 1200×630 aspect (~1.905:1) the CMS auto-
+   crops covers to. Was 340×440 portrait, which forced object-cover
+   to crop the SIDES off any landscape banner — admins uploaded a
+   wide event poster as the upload widget instructed and the carousel
+   showed only a middle vertical slice. Now the full uploaded cover
+   renders. 480×252 keeps similar visual mass to the old card. */
 .gallery-card {
   position: absolute;
-  width: 340px;
-  height: 440px;
+  width: 480px;
+  height: 252px;
   border-radius: 20px;
   overflow: hidden;
   cursor: pointer;
@@ -613,12 +623,16 @@ section {
 @media (max-width: 768px) {
   .gallery-carousel {
     perspective: 800px;
-    height: 400px;
+    /* Match the landscape card shape (was 400 when cards were portrait). */
+    height: 240px;
   }
 
   .gallery-card {
-    width: 260px;
-    height: 340px;
+    /* 320×168 keeps the 40:21 (≈1.9:1) aspect that mirrors the
+       1200×630 CMS crop, so the full uploaded image renders on
+       mobile too. */
+    width: 320px;
+    height: 168px;
     border-radius: 16px;
   }
 

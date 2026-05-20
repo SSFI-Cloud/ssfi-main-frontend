@@ -77,7 +77,10 @@ export default function GalleryPage() {
             const cover = album.coverImage ? resolveImageUrl(album.coverImage) : null;
             return (
               <div key={album.id} className="group bg-white rounded-2xl border border-gray-200 overflow-hidden hover:border-gray-200 transition-colors">
-                <div className="relative aspect-[4/3] bg-[#f5f6f8]">
+                {/* Match the 40:21 (1200×630) aspect the CMS auto-crops
+                    covers to, so this preview reflects exactly what the
+                    public gallery shows. */}
+                <div className="relative aspect-[40/21] bg-[#f5f6f8]">
                   {cover
                     ? <img src={cover} alt={album.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     : <div className="w-full h-full flex items-center justify-center"><FolderOpen className="w-10 h-10 text-gray-500" /></div>
