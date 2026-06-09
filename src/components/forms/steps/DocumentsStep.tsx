@@ -236,11 +236,16 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
       ? !!kycResult?.verified && !dobMismatch
       : !!certPreview; // birth cert uploaded
 
+  // Submit gate. Mirrors the ORIGINAL flow (identity verified + terms)
+  // and only ADDS the new compulsory-Aadhaar requirement. Profile photo
+  // is intentionally NOT a hard gate here — the original flow didn't
+  // block on it (the Aadhaar photo / kycProfileImage serves as a
+  // fallback), and adding a new block could stop registrations that
+  // worked before. The photo box still shows its required marker.
   const canSubmit =
     identityDone &&
     aadhaarValid &&
     aadhaarMatchesKyc &&
-    !!photoPreview &&
     termsAccepted &&
     !isSubmitting;
 
@@ -478,10 +483,7 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
           {aadhaarValid && !aadhaarMatchesKyc && (
             <p className="text-center text-xs text-red-600 font-medium">Aadhaar must end in {kycLast4} to match DigiLocker</p>
           )}
-          {aadhaarValid && aadhaarMatchesKyc && !photoPreview && (
-            <p className="text-center text-xs text-amber-600">Upload a profile photo to submit</p>
-          )}
-          {aadhaarValid && aadhaarMatchesKyc && photoPreview && !termsAccepted && (
+          {aadhaarValid && aadhaarMatchesKyc && !termsAccepted && (
             <p className="text-center text-xs text-amber-600">Please accept the terms and conditions to submit</p>
           )}
         </>
