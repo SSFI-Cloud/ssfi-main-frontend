@@ -469,10 +469,30 @@ export default function StudentRegistrationForm() {
                   <div>
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Mandatory documents</p>
                     <ul className="space-y-1.5 text-gray-700">
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Aadhaar number</strong> (12 digits) — used for OTP-based KYC verification through DigiLocker</span></li>
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Date of birth</strong> — must match the Aadhaar record exactly</span></li>
-                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Recent profile photo</strong> (auto-fetched from Aadhaar KYC; no separate upload needed)</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Aadhaar number</strong> (12 digits) — entered and saved to your SSFI record</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Date of birth</strong> — confirmed in the last step (see the two options below)</span></li>
+                      <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" /><span><strong>Recent profile photo</strong> (passport-style) — or auto-fetched from DigiLocker</span></li>
                     </ul>
+                  </div>
+
+                  {/* Verification choice — surfaced up front so students know
+                      they don't HAVE to use DigiLocker (many struggle with the
+                      OTP) and can fall back to a birth certificate. */}
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <p className="text-xs font-semibold text-emerald-900 mb-1.5 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5" /> Confirming your date of birth — pick ONE in the last step
+                    </p>
+                    <ul className="space-y-1.5 text-xs text-emerald-900">
+                      <li className="flex items-start gap-2">
+                        <span className="font-bold text-emerald-700">1.</span>
+                        <span><strong>DigiLocker (Aadhaar OTP)</strong> — fastest. Your date of birth is confirmed instantly against your Aadhaar record.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-bold text-emerald-700">2.</span>
+                        <span><strong>Upload Birth Certificate</strong> — if DigiLocker isn&apos;t working for you. Upload a clear photo or PDF; our team verifies the date of birth after payment.</span>
+                      </li>
+                    </ul>
+                    <p className="text-[11px] text-emerald-700 mt-1.5">Either option works. Payment comes after this step.</p>
                   </div>
 
                   <div>
