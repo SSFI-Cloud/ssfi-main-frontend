@@ -9,8 +9,10 @@ import {
   User, Home, Shield, Users, MapPin, FileText,
   ChevronLeft, ChevronRight, Check, CheckCircle, Loader2, RefreshCw,
   CheckCircle2, Pencil, ChevronDown, ChevronUp, Save, AlertTriangle,
+  ShieldCheck, ScrollText, X,
 } from 'lucide-react';
 
+import { compressImage } from '@/lib/utils/imageCompress';
 import { useRegistrationStore } from '@/lib/store/registrationStore';
 import { useRegisterStudent, calculateAge, getAgeCategoryFromAge, useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 import { registrationSchema } from '@/lib/validations/student';
@@ -75,6 +77,14 @@ export default function StudentRegistrationForm() {
   const [aadhaarSaving, setAadhaarSaving] = useState(false);
   const [aadhaarConfirmed, setAadhaarConfirmed] = useState(false);
   const [aadhaarError, setAadhaarError] = useState<string | null>(null);
+  // Renewal identity-verification method (DigiLocker vs birth certificate)
+  // — mirrors the new-registration choice so renewing students who can't
+  // use DigiLocker can upload a birth certificate instead.
+  const [renewVerifyMethod, setRenewVerifyMethod] = useState<'surepass' | 'birth_certificate'>('surepass');
+  const [renewBirthCert, setRenewBirthCert] = useState<string | null>(null);
+  const [birthCertSaving, setBirthCertSaving] = useState(false);
+  const [birthCertDone, setBirthCertDone] = useState(false);
+  const [birthCertError, setBirthCertError] = useState<string | null>(null);
 
   const {
     currentStep, formData, updateFormData, completedSteps,
@@ -385,6 +395,41 @@ export default function StudentRegistrationForm() {
     }
   };
 
+  // Birth-certificate verification path for renewal: upload + save to the
+  // student record. Satisfies the identity step for students who can't
+  // use DigiLocker; admin audits the cert later.
+  const handleRenewBirthCertSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBirthCertError(null);
+    try {
+      const b64 = await compressImage(file);
+      setRenewBirthCert(b64);
+    } catch {
+      const reader = new FileReader();
+      reader.onloadend = () => setRenewBirthCert(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveRenewBirthCert = async () => {
+    if (!renewMember || !renewBirthCert) return;
+    setBirthCertError(null);
+    setBirthCertSaving(true);
+    try {
+      await api.post('/affiliations/renew/save-birth-certificate', { uid: renewMember.uid, birthCertificate: renewBirthCert });
+      setBirthCertDone(true);
+      toast.success('Birth certificate uploaded');
+    } catch (e: any) {
+      setBirthCertError(e?.response?.data?.message || 'Could not save the birth certificate. Please try again.');
+    } finally {
+      setBirthCertSaving(false);
+    }
+  };
+
+  // Identity is satisfied either by DigiLocker KYC or a saved birth cert.
+  const renewIdentityDone = !!renewKycResult?.verified || birthCertDone;
+
   const handleRenew = async () => {
     if (!renewMember) return;
     // Block payment until the Aadhaar is confirmed for the corrupted cohort.
@@ -392,6 +437,7 @@ export default function StudentRegistrationForm() {
       setAadhaarError('Please confirm your Aadhaar number above before proceeding to payment.');
       return;
     }
+    if (!renewIdentityDone) return;
     try {
       const order = await initiateRenewal('STUDENT', renewMember.uid);
       if (!order) return;
@@ -648,12 +694,69 @@ export default function StudentRegistrationForm() {
                         </div>
                       </div>
                     ) : (
-                      <AadhaarKYCVerification
-                        onVerified={handleKycVerified}
-                        showProfilePhotoChoice={false}
-                        colorScheme="emerald"
-                        initialResult={renewKycResult}
-                      />
+                      <>
+                        {/* Method selector — DigiLocker OR birth certificate */}
+                        <div className="flex gap-3 mb-3">
+                          <button type="button"
+                            onClick={() => setRenewVerifyMethod('surepass')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${renewVerifyMethod === 'surepass' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}>
+                            <ShieldCheck className="w-4 h-4" /> DigiLocker (Aadhaar)
+                          </button>
+                          <button type="button"
+                            onClick={() => setRenewVerifyMethod('birth_certificate')}
+                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${renewVerifyMethod === 'birth_certificate' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}>
+                            <ScrollText className="w-4 h-4" /> Birth Certificate
+                          </button>
+                        </div>
+
+                        {renewVerifyMethod === 'surepass' ? (
+                          <AadhaarKYCVerification
+                            onVerified={handleKycVerified}
+                            showProfilePhotoChoice={false}
+                            colorScheme="emerald"
+                            initialResult={renewKycResult}
+                          />
+                        ) : birthCertDone ? (
+                          <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                            <p className="text-sm font-medium text-emerald-800">Birth certificate uploaded — our team will verify your date of birth.</p>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-gray-200 p-4 bg-white space-y-3">
+                            <p className="text-xs text-gray-600">
+                              Upload a clear photo or PDF of the birth certificate. We convert it automatically;
+                              our team verifies the date of birth after payment.
+                            </p>
+                            {renewBirthCert ? (
+                              <div className="flex items-center gap-3">
+                                <div className="w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center relative">
+                                  {renewBirthCert.startsWith('data:application/pdf') ? (
+                                    <div className="flex flex-col items-center gap-1 text-emerald-600"><FileText className="w-8 h-8" /><span className="text-[10px]">PDF</span></div>
+                                  ) : (
+                                    <img src={renewBirthCert} alt="Birth certificate" className="w-full h-full object-cover" />
+                                  )}
+                                  <button type="button" onClick={() => { setRenewBirthCert(null); }} className="absolute top-1 right-1 p-0.5 bg-red-500 rounded-full text-white"><X className="w-3 h-3" /></button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleSaveRenewBirthCert}
+                                  disabled={birthCertSaving}
+                                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+                                >
+                                  {birthCertSaving ? 'Uploading…' : 'Save & Continue'}
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-emerald-300 hover:bg-emerald-50">
+                                <ScrollText className="w-7 h-7 text-gray-400" />
+                                <span className="text-sm text-gray-500">Click to upload birth certificate</span>
+                                <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleRenewBirthCertSelect} />
+                              </label>
+                            )}
+                            {birthCertError && <p className="text-xs text-red-600">{birthCertError}</p>}
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Save lifecycle indicators — only render when relevant.
@@ -930,11 +1033,13 @@ export default function StudentRegistrationForm() {
                     <p className="text-sm text-amber-700">Renewing will extend your membership by 1 year from the current expiry date.</p>
                   </div>
 
-                  {/* ── Payment button — enabled after KYC AND (if needed) Aadhaar confirmation ── */}
+                  {/* ── Payment button — enabled after identity (DigiLocker OR
+                      birth cert) AND (if needed) Aadhaar confirmation ── */}
                   {(() => {
+                    const identityOk = renewProfile?.kycVerified || renewIdentityDone;
                     const needsAadhaar = !!renewProfile?.aadhaarNeedsConfirmation && !aadhaarConfirmed;
-                    const blocked = renewLoading || !renewKycResult?.verified || needsAadhaar;
-                    const label = !renewKycResult?.verified
+                    const blocked = renewLoading || !identityOk || needsAadhaar;
+                    const label = !identityOk
                       ? 'Complete Verification to Continue'
                       : needsAadhaar
                         ? 'Confirm Aadhaar to Continue'
