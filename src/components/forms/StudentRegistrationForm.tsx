@@ -68,6 +68,13 @@ export default function StudentRegistrationForm() {
   const [profileSaveLoading, setProfileSaveLoading] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Renewal Aadhaar re-collection — renewing students whose stored Aadhaar
+  // is the corrupted masked form must type their full 12-digit number
+  // before paying. See renewProfile.aadhaarNeedsConfirmation.
+  const [renewAadhaar, setRenewAadhaar] = useState('');
+  const [aadhaarSaving, setAadhaarSaving] = useState(false);
+  const [aadhaarConfirmed, setAadhaarConfirmed] = useState(false);
+  const [aadhaarError, setAadhaarError] = useState<string | null>(null);
 
   const {
     currentStep, formData, updateFormData, completedSteps,
@@ -355,8 +362,36 @@ export default function StudentRegistrationForm() {
     }
   };
 
+  // Save the typed Aadhaar during renewal (corrupted/missing cohort).
+  const handleConfirmAadhaar = async () => {
+    if (!renewMember) return;
+    setAadhaarError(null);
+    const digits = renewAadhaar.replace(/\D/g, '');
+    if (digits.length !== 12) { setAadhaarError('Enter your full 12-digit Aadhaar number.'); return; }
+    const last4 = renewProfile?.aadhaarLast4;
+    if (last4 && digits.slice(-4) !== last4) {
+      setAadhaarError(`The number must end in ${last4} — that's the Aadhaar on your SSFI record.`);
+      return;
+    }
+    setAadhaarSaving(true);
+    try {
+      await api.post('/affiliations/renew/confirm-aadhaar', { uid: renewMember.uid, aadhaarNumber: digits });
+      setAadhaarConfirmed(true);
+      toast.success('Aadhaar confirmed');
+    } catch (e: any) {
+      setAadhaarError(e?.response?.data?.message || 'Could not save your Aadhaar. Please try again.');
+    } finally {
+      setAadhaarSaving(false);
+    }
+  };
+
   const handleRenew = async () => {
     if (!renewMember) return;
+    // Block payment until the Aadhaar is confirmed for the corrupted cohort.
+    if (renewProfile?.aadhaarNeedsConfirmation && !aadhaarConfirmed) {
+      setAadhaarError('Please confirm your Aadhaar number above before proceeding to payment.');
+      return;
+    }
     try {
       const order = await initiateRenewal('STUDENT', renewMember.uid);
       if (!order) return;
@@ -540,6 +575,43 @@ export default function StudentRegistrationForm() {
                       );
                     })()}
                   </div>
+
+                  {/* ── Aadhaar number (compulsory) ──
+                      Renewing students whose stored Aadhaar is the corrupted
+                      masked form must type their full 12-digit number. Those
+                      already on file see a confirmation badge instead. */}
+                  {renewProfile?.aadhaarNeedsConfirmation && !aadhaarConfirmed ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-amber-900 mb-1">Confirm your Aadhaar number</p>
+                      <p className="text-xs text-amber-700 mb-3">
+                        Please enter your full 12-digit Aadhaar number to update your SSFI record.
+                        {renewProfile?.aadhaarLast4 && <> It ends in <span className="font-mono font-semibold">{renewProfile.aadhaarLast4}</span>.</>}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          inputMode="numeric"
+                          value={renewAadhaar.replace(/(\d{4})(?=\d)/g, '$1 ')}
+                          onChange={e => { setRenewAadhaar(e.target.value.replace(/\D/g, '').slice(0, 12)); setAadhaarError(null); }}
+                          placeholder="1234 5678 9012"
+                          className="flex-1 px-3 py-2.5 border border-amber-300 rounded-lg font-mono tracking-wider focus:ring-2 focus:ring-amber-400 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleConfirmAadhaar}
+                          disabled={aadhaarSaving || renewAadhaar.replace(/\D/g, '').length !== 12}
+                          className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {aadhaarSaving ? 'Saving…' : 'Confirm'}
+                        </button>
+                      </div>
+                      {aadhaarError && <p className="text-xs text-red-600 mt-1.5">{aadhaarError}</p>}
+                    </div>
+                  ) : (renewProfile?.aadhaarNeedsConfirmation && aadhaarConfirmed) ? (
+                    <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      <p className="text-sm font-medium text-emerald-800">Aadhaar number confirmed</p>
+                    </div>
+                  ) : null}
 
                   {/* ── Step 1: Identity Verification ── */}
                   <div>
@@ -838,13 +910,24 @@ export default function StudentRegistrationForm() {
                     <p className="text-sm text-amber-700">Renewing will extend your membership by 1 year from the current expiry date.</p>
                   </div>
 
-                  {/* ── Payment button — only enabled after KYC ── */}
-                  <button type="button" onClick={handleRenew}
-                    disabled={renewLoading || !renewKycResult?.verified}
-                    className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
-                    {renewLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-                    {renewKycResult?.verified ? 'Proceed to Payment' : 'Complete Verification to Continue'}
-                  </button>
+                  {/* ── Payment button — enabled after KYC AND (if needed) Aadhaar confirmation ── */}
+                  {(() => {
+                    const needsAadhaar = !!renewProfile?.aadhaarNeedsConfirmation && !aadhaarConfirmed;
+                    const blocked = renewLoading || !renewKycResult?.verified || needsAadhaar;
+                    const label = !renewKycResult?.verified
+                      ? 'Complete Verification to Continue'
+                      : needsAadhaar
+                        ? 'Confirm Aadhaar to Continue'
+                        : 'Proceed to Payment';
+                    return (
+                      <button type="button" onClick={handleRenew}
+                        disabled={blocked}
+                        className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all">
+                        {renewLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                        {label}
+                      </button>
+                    );
+                  })()}
                 </div>
               )}
             </motion.div>
