@@ -27,6 +27,7 @@ interface FormData {
     nomineeName: string; nomineeAge: number; nomineeRelation: string;
     coachName: string;
     skateCategory: string;
+    aadhaarNumber: string;
     addressLine1: string; city: string; pincode: string;
     // Editable location. We keep these as ids so the cascading selects can
     // round-trip cleanly; the backend re-derives state+district from the
@@ -45,6 +46,11 @@ export default function EditStudentPage() {
     const [success, setSuccess] = useState(false);
     const [studentName, setStudentName] = useState('');
     const [ssfiId, setSsfiId] = useState('');
+    // Snapshot of the Aadhaar as loaded, so we only resend it on save when
+    // the admin actually changed it — otherwise an untouched corrupted
+    // "00000000XXXX" value would fail the backend Verhoeff check and block
+    // the whole save.
+    const [originalAadhaar, setOriginalAadhaar] = useState('');
 
     const [form, setForm] = useState<FormData>({
         firstName: '', lastName: '', dateOfBirth: '', gender: 'MALE',
@@ -54,6 +60,7 @@ export default function EditStudentPage() {
         nomineeName: '', nomineeAge: 18, nomineeRelation: 'FATHER',
         coachName: '',
         skateCategory: '',
+        aadhaarNumber: '',
         addressLine1: '', city: '', pincode: '',
         stateId: '', districtId: '', clubId: '',
     });
@@ -103,6 +110,7 @@ export default function EditStudentPage() {
                     nomineeRelation: s.nomineeRelation || 'FATHER',
                     coachName: s.coachName || '',
                     skateCategory: s.categoryType?.cat_name || '',
+                    aadhaarNumber: s.aadhaarNumber || '',
                     addressLine1: s.addressLine1 || '',
                     city: s.city || '',
                     pincode: s.pincode || '',
@@ -110,6 +118,7 @@ export default function EditStudentPage() {
                     districtId: s.districtId ? String(s.districtId) : '',
                     clubId: s.clubId ? String(s.clubId) : '',
                 });
+                setOriginalAadhaar(s.aadhaarNumber || '');
                 // Prime the cascading lists so the current district/club
                 // options are visible without waiting for the user to
                 // click through the state picker.
@@ -179,6 +188,15 @@ export default function EditStudentPage() {
                 // Backend resolves the label to CategoryType.id (creating
                 // the row if missing). Empty string clears the link.
                 skateCategory: form.skateCategory,
+                // Aadhaar: only sent when the admin actually changed it.
+                // Untouched corrupted "00000000XXXX" values are NOT resent
+                // (they'd fail the backend's 12-digit Verhoeff check and
+                // block the save). On a real edit the backend validates,
+                // checks uniqueness, and locks the field.
+                ...((form.aadhaarNumber || '').replace(/\D/g, '') !== (originalAadhaar || '').replace(/\D/g, '')
+                    && (form.aadhaarNumber || '').replace(/\D/g, '').length > 0
+                    ? { aadhaarNumber: (form.aadhaarNumber || '').replace(/\D/g, '') }
+                    : {}),
                 addressLine1: form.addressLine1,
                 city: form.city,
                 pincode: form.pincode,
@@ -316,6 +334,26 @@ export default function EditStudentPage() {
                         <div className="sm:col-span-2">
                             <label className={labelCls}>Email</label>
                             <input type="email" className={inputCls} value={form.email} onChange={e => set('email', e.target.value)} placeholder="email@example.com" />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className={labelCls}>
+                                Aadhaar Number
+                                {/^0{8}\d{4}$/.test((form.aadhaarNumber || '').replace(/\D/g, '')) && (
+                                    <span className="ml-2 text-xs text-amber-600 font-normal">(unconfirmed — only last 4 known; enter the full number to fix)</span>
+                                )}
+                            </label>
+                            <input
+                                className={`${inputCls} font-mono tracking-wider`}
+                                value={form.aadhaarNumber}
+                                onChange={(e) => set('aadhaarNumber', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                                inputMode="numeric"
+                                maxLength={12}
+                                placeholder="12-digit Aadhaar number"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Editing this overrides and locks the student&apos;s Aadhaar. Must be a valid 12-digit number.
+                                Leave unchanged to keep the current value.
+                            </p>
                         </div>
                     </div>
                 </Section>

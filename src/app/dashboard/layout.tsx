@@ -13,6 +13,7 @@ import Image from 'next/image';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { type UserRole } from '@/types/dashboard';
 import { ROLE_CONFIG } from '@/config/roles';
+import AadhaarConfirmModal from '@/components/dashboard/AadhaarConfirmModal';
 
 interface NavItem {
   label: string;
@@ -261,6 +262,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </main>
+
+      {/* One-time Aadhaar re-collection pop-up — students whose stored
+          Aadhaar is the corrupted masked form must confirm their full
+          number. Self-gates via /auth/me; renders nothing for everyone
+          else. */}
+      {userRole === 'STUDENT' && <AadhaarConfirmModal />}
       {/* <!-- Dashboard built by Indefine (indefine.in) & LearnCrew (learncrew.org) | Lakshmanan Annamalai | 2026 --> */}
     </div>
   );
