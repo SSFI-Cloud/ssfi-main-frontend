@@ -51,6 +51,7 @@ interface Student {
     created_at: string;
     last_payment_date: string | null;
     last_payment_type: 'STUDENT_REGISTRATION' | 'RENEWAL_FEE' | null;
+    aadhaar_number: string | null;
 }
 
 /**
@@ -371,10 +372,16 @@ export default function RegisteredStudentsPage() {
                                         { label: 'Email', value: viewingStudent.email || '—' },
                                         { label: 'Gender', value: viewingStudent.gender },
                                         { label: 'Coach', value: viewingStudent.coach_name || '—' },
+                                        // Aadhaar shown in full so admins can compare two
+                                        // suspected duplicate registrations (sibling/parent
+                                        // shared-Aadhaar scenarios). Treat as sensitive PII —
+                                        // this panel is global-admin gated by the surrounding
+                                        // route.
+                                        { label: 'Aadhaar', value: viewingStudent.aadhaar_number || '—' },
                                     ].map(({ label, value }) => (
                                         <div key={label} className="bg-gray-50 rounded-xl p-4">
                                             <p className="text-xs text-gray-500 mb-1">{label}</p>
-                                            <p className="font-medium text-gray-900 text-sm break-all">{value}</p>
+                                            <p className={`font-medium text-gray-900 text-sm break-all ${label === 'Aadhaar' ? 'font-mono tracking-wider' : ''}`}>{value}</p>
                                         </div>
                                     ))}
                                     <div className="bg-gray-50 rounded-xl p-4 col-span-2">

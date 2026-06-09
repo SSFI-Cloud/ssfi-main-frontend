@@ -49,6 +49,7 @@ interface Student {
     approval_status: string;
     profile_image: string | null;
     created_at: string;
+    aadhaar_number: string | null;
 }
 
 // Categories shown in the filter dropdown on the Students Management page.

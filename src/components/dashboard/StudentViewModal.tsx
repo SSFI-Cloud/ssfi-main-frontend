@@ -41,6 +41,7 @@ interface StudentProfile {
     approval_status: string;
     profile_image: string | null;
     created_at: string;
+    aadhaar_number: string | null;
 }
 
 interface StudentViewModalProps {
@@ -195,6 +196,10 @@ export default function StudentViewModal({ student, isLoading, onClose }: Studen
                                         <Field icon={Phone}    label="Mobile"         value={student.mobile} />
                                         {student.email && <Field icon={Mail} label="Email" value={student.email} />}
                                         {student.address && <Field icon={MapPin} label="Address" value={[student.address, student.city, student.pincode].filter(Boolean).join(', ')} />}
+                                        {/* Aadhaar — shown in full so admins can spot duplicate-Aadhaar
+                                            collisions (e.g. sibling/parent shared-Aadhaar cases). PII;
+                                            this modal is global-admin gated by the route. */}
+                                        {student.aadhaar_number && <Field icon={Shield} label="Aadhaar" value={student.aadhaar_number} />}
                                     </div>
                                 </div>
 
