@@ -110,6 +110,11 @@ export interface StudentRegistrationData {
     kycVerifiedGender?: string;
     kycProfileImage?: string;
 
+    // Identity verification path: SurePass DigiLocker OR birth certificate.
+    // Picked on the final step. Birth-cert students skip DigiLocker; their
+    // typed DOB is taken on trust and the admin audits the uploaded cert.
+    verificationMethod?: 'surepass' | 'birth_certificate';
+
     // File paths/URLs for preview/storage
     profilePhoto?: string;
     birthCertificate?: string;

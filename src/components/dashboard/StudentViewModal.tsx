@@ -1,12 +1,14 @@
 ﻿'use client';
 
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     X, User, Phone, Mail, MapPin, Calendar, Hash,
     Users, AlertCircle, CheckCircle2, Loader2,
-    GraduationCap, Heart, Trophy, Shield
+    GraduationCap, Heart, Trophy, Shield, Download
 } from 'lucide-react';
 import DownloadButton from '@/components/shared/DownloadButton';
+import { api } from '@/lib/api/client';
 
 /* Always use the backend base URL for serving uploaded images */
 const IMG_BASE = 'https://api.ssfiskate.com';
@@ -42,6 +44,7 @@ interface StudentProfile {
     profile_image: string | null;
     created_at: string;
     aadhaar_number: string | null;
+    has_birth_certificate?: boolean;
 }
 
 interface StudentViewModalProps {
@@ -75,6 +78,30 @@ const Field = ({ icon: Icon, label, value, mono = false }: { icon: any; label: s
 );
 
 export default function StudentViewModal({ student, isLoading, onClose }: StudentViewModalProps) {
+    const [downloadingCert, setDownloadingCert] = useState(false);
+
+    const downloadBirthCert = async () => {
+        if (!student) return;
+        setDownloadingCert(true);
+        try {
+            const res = await api.get(`/students/${student.id}/birth-certificate`);
+            const d = res.data?.data || res.data;
+            const dataUri: string = d?.dataUri;
+            if (!dataUri) return;
+            const ext = dataUri.startsWith('data:application/pdf') ? 'pdf' : 'webp';
+            const a = document.createElement('a');
+            a.href = dataUri;
+            a.download = `birth-certificate-${(d?.uid || student.ssfi_id || student.id).toString().replace(/[^\w-]/g, '_')}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch {
+            /* swallow — admin can retry */
+        } finally {
+            setDownloadingCert(false);
+        }
+    };
+
     return (
         <AnimatePresence>
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
@@ -200,6 +227,25 @@ export default function StudentViewModal({ student, isLoading, onClose }: Studen
                                             collisions (e.g. sibling/parent shared-Aadhaar cases). PII;
                                             this modal is global-admin gated by the route. */}
                                         {student.aadhaar_number && <Field icon={Shield} label="Aadhaar" value={student.aadhaar_number} />}
+                                        {student.has_birth_certificate && (
+                                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                                        <Calendar className="w-4 h-4 text-gray-500" />
+                                                    </div>
+                                                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Birth Certificate</p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={downloadBirthCert}
+                                                    disabled={downloadingCert}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 text-xs font-medium disabled:opacity-50"
+                                                >
+                                                    {downloadingCert ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                                                    Download
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

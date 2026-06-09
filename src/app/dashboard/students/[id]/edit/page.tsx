@@ -7,7 +7,7 @@ import Link from 'next/link';
 import {
     ArrowLeft, Save, User, Phone, Mail, MapPin, Calendar,
     GraduationCap, Heart, Shield, Loader2, AlertCircle, CheckCircle,
-    Users, Hash, Camera
+    Users, Hash, Camera, Download, FileText
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -51,6 +51,8 @@ export default function EditStudentPage() {
     // "00000000XXXX" value would fail the backend Verhoeff check and block
     // the whole save.
     const [originalAadhaar, setOriginalAadhaar] = useState('');
+    const [hasBirthCert, setHasBirthCert] = useState(false);
+    const [downloadingCert, setDownloadingCert] = useState(false);
 
     const [form, setForm] = useState<FormData>({
         firstName: '', lastName: '', dateOfBirth: '', gender: 'MALE',
@@ -119,6 +121,7 @@ export default function EditStudentPage() {
                     clubId: s.clubId ? String(s.clubId) : '',
                 });
                 setOriginalAadhaar(s.aadhaarNumber || '');
+                setHasBirthCert(!!s.birthCertificate);
                 // Prime the cascading lists so the current district/club
                 // options are visible without waiting for the user to
                 // click through the state picker.
@@ -156,6 +159,30 @@ export default function EditStudentPage() {
 
     const set = (field: keyof FormData, value: string | number) =>
         setForm(prev => ({ ...prev, [field]: value }));
+
+    // Download the birth certificate (base64 dataURI) → file. WebP for
+    // images, PDF passthrough. Fetched on demand so the heavy blob isn't
+    // in the page payload.
+    const downloadBirthCert = async () => {
+        setDownloadingCert(true);
+        try {
+            const res = await api.get(`/students/${id}/birth-certificate`);
+            const d = res.data?.data || res.data;
+            const dataUri: string = d?.dataUri;
+            if (!dataUri) throw new Error('No certificate');
+            const ext = dataUri.startsWith('data:application/pdf') ? 'pdf' : 'webp';
+            const a = document.createElement('a');
+            a.href = dataUri;
+            a.download = `birth-certificate-${(d?.uid || ssfiId || id).toString().replace(/[^\w-]/g, '_')}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch {
+            setError('Failed to download birth certificate');
+        } finally {
+            setDownloadingCert(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -355,6 +382,21 @@ export default function EditStudentPage() {
                                 Leave unchanged to keep the current value.
                             </p>
                         </div>
+                        {hasBirthCert && (
+                            <div className="sm:col-span-2">
+                                <label className={labelCls}>Birth Certificate</label>
+                                <button
+                                    type="button"
+                                    onClick={downloadBirthCert}
+                                    disabled={downloadingCert}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 text-sm font-medium disabled:opacity-50"
+                                >
+                                    {downloadingCert ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                    Download birth certificate
+                                </button>
+                                <p className="mt-1 text-xs text-gray-500">Uploaded by the student as DOB proof. Verify against the declared date of birth.</p>
+                            </div>
+                        )}
                     </div>
                 </Section>
 

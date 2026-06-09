@@ -50,6 +50,7 @@ interface Student {
     profile_image: string | null;
     created_at: string;
     aadhaar_number: string | null;
+    has_birth_certificate?: boolean;
 }
 
 // Categories shown in the filter dropdown on the Students Management page.

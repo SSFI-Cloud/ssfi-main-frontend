@@ -36,6 +36,7 @@ const defaultFormData: Partial<StudentRegistrationData> = {
   kycVerifiedDob: '',
   kycVerifiedGender: '',
   kycProfileImage: '',
+  verificationMethod: 'surepass',
   profilePhoto: '',
   birthCertificate: '',
   termsAccepted: false,
