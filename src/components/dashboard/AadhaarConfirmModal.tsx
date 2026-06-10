@@ -22,6 +22,8 @@ export default function AadhaarConfirmModal() {
   const [show, setShow] = useState(false);
   const [checking, setChecking] = useState(true);
   const [last4Hint, setLast4Hint] = useState<string | null>(null);
+  const [canSkip, setCanSkip] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [value, setValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,26 @@ export default function AadhaarConfirmModal() {
         // last-4 — surface it as a hint and to gate the input.
         const masked: string | undefined = d?.profile?.aadhaarNumber;
         const m = masked ? masked.replace(/\D/g, '').slice(-4) : '';
-        setLast4Hint(m && m.length === 4 ? m : null);
+        const last4 = m && m.length === 4 ? m : null;
+        setLast4Hint(last4);
+
+        // Skip is offered to under-5 children, OR any student with no
+        // Aadhaar last-4 on file (they registered via birth certificate
+        // and may not have an Aadhaar). Students 5+ who clearly have an
+        // Aadhaar (a known last-4) must confirm it — no skip.
+        const dobStr: string | undefined = d?.profile?.dateOfBirth;
+        let age = 99;
+        if (dobStr) {
+          const dob = new Date(dobStr);
+          if (!Number.isNaN(dob.getTime())) {
+            const now = new Date();
+            age = now.getFullYear() - dob.getFullYear();
+            const mm = now.getMonth() - dob.getMonth();
+            if (mm < 0 || (mm === 0 && now.getDate() < dob.getDate())) age--;
+          }
+        }
+        setCanSkip(age < 5 || !last4);
+
         setShow(true);
       }
     } catch {
@@ -47,6 +68,19 @@ export default function AadhaarConfirmModal() {
       setChecking(false);
     }
   }, []);
+
+  const handleSkip = async () => {
+    setError(null);
+    setSkipping(true);
+    try {
+      await api.post('/students/me/skip-aadhaar');
+      setShow(false);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Could not skip. Please try again.');
+    } finally {
+      setSkipping(false);
+    }
+  };
 
   useEffect(() => {
     checkStatus();
@@ -113,8 +147,13 @@ export default function AadhaarConfirmModal() {
           ) : (
             <>
               <p className="text-sm text-gray-600">
-                For verification, please enter your full <strong>12-digit Aadhaar number</strong>.
-                This is required once and will be securely saved to your profile.
+                {canSkip ? (
+                  <>If the skater has an Aadhaar, please enter the full <strong>12-digit number</strong>.
+                  Young children who don&apos;t have an Aadhaar yet can skip this step.</>
+                ) : (
+                  <>For verification, please enter your full <strong>12-digit Aadhaar number</strong>.
+                  This is required once and will be securely saved to your profile.</>
+                )}
                 {last4Hint && (
                   <> Your Aadhaar on file ends in <span className="font-mono font-semibold text-gray-900">{last4Hint}</span>.</>
                 )}
@@ -122,7 +161,7 @@ export default function AadhaarConfirmModal() {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Aadhaar Number
+                  Aadhaar Number {canSkip && <span className="text-gray-400 normal-case font-normal">(optional)</span>}
                 </label>
                 <input
                   inputMode="numeric"
@@ -144,11 +183,21 @@ export default function AadhaarConfirmModal() {
 
               <button
                 onClick={handleSubmit}
-                disabled={submitting || value.length !== 12}
+                disabled={submitting || skipping || value.length !== 12}
                 className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-semibold rounded-xl hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Saving…</> : <>Confirm &amp; Save</>}
               </button>
+
+              {canSkip && (
+                <button
+                  onClick={handleSkip}
+                  disabled={submitting || skipping}
+                  className="w-full py-2.5 text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {skipping ? <><Loader2 className="w-4 h-4 animate-spin" /> Skipping…</> : <>Skip — no Aadhaar yet</>}
+                </button>
+              )}
 
               <p className="text-[11px] text-gray-400 text-center">
                 Your Aadhaar is stored securely and used only for SSFI membership verification.
