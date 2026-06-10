@@ -250,10 +250,13 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
   // block on it (the Aadhaar photo / kycProfileImage serves as a
   // fallback), and adding a new block could stop registrations that
   // worked before. The photo box still shows its required marker.
+  // Aadhaar is required + must match DigiLocker on the SurePass path, but
+  // OPTIONAL on the birth-certificate path (young children may not have
+  // an Aadhaar — they're verified by the certificate).
+  const aadhaarOk = method === 'surepass' ? (aadhaarValid && aadhaarMatchesKyc) : true;
   const canSubmit =
     identityDone &&
-    aadhaarValid &&
-    aadhaarMatchesKyc &&
+    aadhaarOk &&
     termsAccepted &&
     !isSubmitting;
 
@@ -303,7 +306,10 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
       {/* ── Compulsory typed Aadhaar ── */}
       <div className="rounded-xl border border-gray-200 p-4 bg-white">
         <label className="block text-sm font-semibold text-gray-800 mb-1.5">
-          Aadhaar Number <span className="text-red-500">*</span>
+          Aadhaar Number{' '}
+          {method === 'surepass'
+            ? <span className="text-red-500">*</span>
+            : <span className="text-gray-400 font-normal">(optional)</span>}
         </label>
         <input
           inputMode="numeric"
@@ -504,13 +510,13 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
             {isSubmitting ? <><Loader2 className="w-5 h-5 animate-spin" /> Submitting...</> : <><Check className="w-5 h-5" /> Submit Registration</>}
           </motion.button>
 
-          {!aadhaarValid && (
+          {method === 'surepass' && !aadhaarValid && (
             <p className="text-center text-xs text-amber-600">Enter your full 12-digit Aadhaar number to submit</p>
           )}
-          {aadhaarValid && !aadhaarMatchesKyc && (
+          {method === 'surepass' && aadhaarValid && !aadhaarMatchesKyc && (
             <p className="text-center text-xs text-red-600 font-medium">Aadhaar must end in {kycLast4} to match DigiLocker</p>
           )}
-          {aadhaarValid && aadhaarMatchesKyc && !termsAccepted && (
+          {aadhaarOk && !termsAccepted && (
             <p className="text-center text-xs text-amber-600">Please accept the terms and conditions to submit</p>
           )}
         </>
