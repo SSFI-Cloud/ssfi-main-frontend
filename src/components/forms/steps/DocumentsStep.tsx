@@ -73,6 +73,9 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
   const switchMethod = (m: VerificationMethod) => {
     setMethod(m);
     updateFormData({ verificationMethod: m });
+    // Switching to birth cert clears any DigiLocker mismatch state so a
+    // prior attempt's DOB can't bleed into this path.
+    if (m === 'birth_certificate') setDobMismatch(false);
   };
 
   // ── KYC Verified Handler ──
@@ -258,20 +261,34 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
     e.preventDefault();
     if (!canSubmit) return;
 
+    // CRITICAL: on the birth-certificate path we must send NO KYC data.
+    // Otherwise a stale DigiLocker DOB — from an earlier DigiLocker
+    // attempt in this session, or rehydrated from a resume link (e.g. a
+    // sibling's DOB 2010-09-13) — leaks through and trips the backend's
+    // DOB cross-check, blocking a legitimate birth-cert registration.
+    // The cross-check is DigiLocker-only by design; gating these fields
+    // on the method keeps the two paths fully independent.
+    const usingSurepass = method === 'surepass';
     const mappedData: Partial<StudentRegistrationData> = {
       aadhaarNumber: aadhaar,
       verificationMethod: method,
       profilePhoto: photoPreview || formData.profilePhoto || '',
       birthCertificate: certPreview || formData.birthCertificate || '',
-      kycVerified: method === 'surepass' ? true : false,
-      kycVerifiedName: kycResult?.fullName || '',
-      kycVerifiedDob: kycResult?.dob || '',
-      kycVerifiedGender: kycResult?.gender || '',
-      kycProfileImage: kycResult?.profileImage || '',
+      kycVerified: usingSurepass ? true : false,
+      kycVerifiedName: usingSurepass ? (kycResult?.fullName || '') : '',
+      kycVerifiedDob: usingSurepass ? (kycResult?.dob || '') : '',
+      kycVerifiedGender: usingSurepass ? (kycResult?.gender || '') : '',
+      kycProfileImage: usingSurepass ? (kycResult?.profileImage || '') : '',
       termsAccepted: true,
     };
 
-    updateFormData({ termsAccepted: true });
+    updateFormData({
+      termsAccepted: true,
+      // Also clear any stale KYC fields in the store on the birth-cert
+      // path, so the submit payload (read from the store) can't carry a
+      // leftover DigiLocker DOB.
+      ...(usingSurepass ? {} : { kycVerified: false, kycVerifiedDob: '', kycVerifiedName: '', kycVerifiedGender: '', kycProfileImage: '' }),
+    });
     onComplete(mappedData);
     onSubmit();
   };
