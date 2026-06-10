@@ -430,6 +430,30 @@ export default function StudentRegistrationForm() {
   // Identity is satisfied either by DigiLocker KYC or a saved birth cert.
   const renewIdentityDone = !!renewKycResult?.verified || birthCertDone;
 
+  // Skip eligibility for the renewal Aadhaar step: under-5 children, or
+  // students with no Aadhaar last-4 on file (registered via birth cert).
+  const renewAge = (() => {
+    const dob = renewProfile?.dateOfBirth || (renewMember as any)?.dateOfBirth;
+    if (!dob) return 99;
+    try { return calculateAge(dob); } catch { return 99; }
+  })();
+  const renewCanSkipAadhaar = renewAge < 5 || !renewProfile?.aadhaarLast4;
+
+  const handleSkipRenewAadhaar = async () => {
+    if (!renewMember) return;
+    setAadhaarError(null);
+    setAadhaarSaving(true);
+    try {
+      await api.post('/affiliations/renew/skip-aadhaar', { uid: renewMember.uid });
+      setAadhaarConfirmed(true);
+      toast.success('Aadhaar step skipped');
+    } catch (e: any) {
+      setAadhaarError(e?.response?.data?.message || 'Could not skip. Please try again.');
+    } finally {
+      setAadhaarSaving(false);
+    }
+  };
+
   const handleRenew = async () => {
     if (!renewMember) return;
     // Block payment until the Aadhaar is confirmed for the corrupted cohort.
@@ -648,9 +672,13 @@ export default function StudentRegistrationForm() {
                       already on file see a confirmation badge instead. */}
                   {renewProfile?.aadhaarNeedsConfirmation && !aadhaarConfirmed ? (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                      <p className="text-sm font-semibold text-amber-900 mb-1">Confirm your Aadhaar number</p>
+                      <p className="text-sm font-semibold text-amber-900 mb-1">
+                        {renewCanSkipAadhaar ? 'Aadhaar number' : 'Confirm your Aadhaar number'}
+                      </p>
                       <p className="text-xs text-amber-700 mb-3">
-                        Please enter your full 12-digit Aadhaar number to update your SSFI record.
+                        {renewCanSkipAadhaar
+                          ? 'If the skater has an Aadhaar, enter the full 12-digit number. Young children without an Aadhaar can skip this step.'
+                          : 'Please enter your full 12-digit Aadhaar number to update your SSFI record.'}
                         {renewProfile?.aadhaarLast4 && <> It ends in <span className="font-mono font-semibold">{renewProfile.aadhaarLast4}</span>.</>}
                       </p>
                       <div className="flex items-center gap-2">
@@ -670,6 +698,16 @@ export default function StudentRegistrationForm() {
                           {aadhaarSaving ? 'Saving…' : 'Confirm'}
                         </button>
                       </div>
+                      {renewCanSkipAadhaar && (
+                        <button
+                          type="button"
+                          onClick={handleSkipRenewAadhaar}
+                          disabled={aadhaarSaving}
+                          className="mt-2 text-xs text-amber-800 hover:text-amber-900 underline disabled:opacity-50"
+                        >
+                          Skip — no Aadhaar yet
+                        </button>
+                      )}
                       {aadhaarError && <p className="text-xs text-red-600 mt-1.5">{aadhaarError}</p>}
                     </div>
                   ) : (renewProfile?.aadhaarNeedsConfirmation && aadhaarConfirmed) ? (
