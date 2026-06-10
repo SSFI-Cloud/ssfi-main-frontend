@@ -79,12 +79,17 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
   const handleKycVerified = useCallback(async (result: KycResult) => {
     setKycResult(result);
 
-    // Pre-fill the typed Aadhaar's last-4 hint isn't possible (masked),
-    // but if the user already typed 12 digits we validate the match in
-    // the gating below. Cross-check DOB with Step 1.
+    // Cross-check DOB with Step 1. Year-only Aadhaars (common for young
+    // children) come back as YYYY-01-01 — compare only the year for those,
+    // so a real DOB like 2020-06-05 isn't wrongly flagged against a
+    // "2020-01-01" Aadhaar value.
     if (result.dob && formData.dateOfBirth) {
       const formDob = new Date(formData.dateOfBirth).toISOString().split('T')[0];
-      setDobMismatch(formDob !== result.dob);
+      const kycIsYearOnly = /^\d{4}-01-01$/.test(result.dob);
+      const mismatch = kycIsYearOnly
+        ? formDob.slice(0, 4) !== result.dob.slice(0, 4)
+        : formDob !== result.dob;
+      setDobMismatch(mismatch);
     }
 
     const mergedFormData = {
@@ -365,8 +370,13 @@ export default function DocumentsStep({ onComplete, onSubmit, isSubmitting }: Do
                 <p className="text-sm font-semibold text-red-800">Date of Birth Mismatch</p>
                 <p className="text-xs text-red-600 mt-1">
                   Step 1 DOB ({formData.dateOfBirth ? new Date(formData.dateOfBirth).toLocaleDateString('en-IN') : '—'})
-                  doesn&apos;t match Aadhaar ({kycResult?.dob ? new Date(kycResult.dob).toLocaleDateString('en-IN') : '—'}).
-                  Go back to Step 1 and correct it.
+                  doesn&apos;t match the DigiLocker record ({kycResult?.dob ? new Date(kycResult.dob).toLocaleDateString('en-IN') : '—'}).
+                </p>
+                <p className="text-xs text-red-700 mt-1.5 font-medium">
+                  If the DigiLocker login was done by a parent or sibling (not the child), switch to
+                  the <strong>Birth Certificate</strong> option above — that&apos;s the right path for a
+                  child whose Aadhaar isn&apos;t linked to a mobile number. Otherwise, go back to Step 1
+                  and correct the date.
                 </p>
               </div>
             </div>
