@@ -94,6 +94,23 @@ export default function StudentRegistrationForm() {
   const { initiateStudentRegistration, verifyStudentPayment } = useRegisterStudent();
   const { initiateRenewal, verifyRenewal, isLoading: renewLoading } = useRenewal();
 
+  // Discard stale saved progress on a normal visit. The wizard persists to
+  // localStorage (so an accidental refresh mid-form doesn't lose data), but
+  // that also meant a student who dropped off at the DigiLocker step got
+  // auto-dumped straight back into it on their next visit — stuck, unable to
+  // switch to birth certificate or restart. On a fresh visit we now wipe
+  // that saved state so everyone starts clean from Step 1. The explicit
+  // "hand off to student" resume link (?resume=token) is exempt — that path
+  // intentionally restores the teacher's snapshot.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get('resume')) {
+      resetForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     api.get('/registration-windows/check/renewal-status', { params: { type: 'student' } })
       .then(res => { if (!res.data?.data?.renewalEnabled) setMode('new'); })
@@ -611,7 +628,7 @@ export default function StudentRegistrationForm() {
                   <AffiliationLookupStep
                     type="STUDENT"
                     onFound={handleMemberFound}
-                    onNew={() => setMode('new')}
+                    onNew={() => { resetForm(); setMode('new'); }}
                   />
                 </div>
               </div>
@@ -1104,6 +1121,17 @@ export default function StudentRegistrationForm() {
                   <ChevronLeft className="w-4 h-4" /> Back
                 </button>
                 <span className="text-sm text-gray-400">/ New Registration</span>
+                {/* Escape hatch — clears any saved progress and restarts from
+                    Step 1. Helps anyone who landed mid-flow (e.g. via a resume
+                    link) and got stuck, e.g. on the DigiLocker step. */}
+                <button
+                  type="button"
+                  onClick={() => { resetForm(); setCurrentStep(1); }}
+                  className="ml-auto flex items-center gap-1 text-xs text-gray-400 hover:text-red-600 transition-colors"
+                  title="Clear everything and start a fresh registration"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Start over
+                </button>
               </div>
 
               {/* Progress Steps */}
