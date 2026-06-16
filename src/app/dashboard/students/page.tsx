@@ -247,12 +247,37 @@ export default function StudentsPage() {
 
     const handleResendCredentials = async (student: Student) => {
         if (!student.email) { toast.error('Student has no email on file'); return; }
+        // Pin the exact student: pass the phone too when it's a real
+        // 10-digit number (the backend ANDs the identifiers). Several
+        // siblings can share a parent's email, so email-only could resend
+        // for the wrong child — phone (unique) disambiguates.
+        const realPhone = /^[6-9]\d{9}$/.test(student.mobile || '') ? student.mobile : undefined;
+        const identify: Record<string, any> = { email: student.email, ...(realPhone ? { phone: realPhone } : {}) };
         setResendLoading(student.id);
         try {
-            await api.post('/admin/resend-credentials', { email: student.email });
+            await api.post('/admin/resend-credentials', identify);
             toast.success(`Credentials sent to ${student.email}`);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            // Custom-password users are protected from accidental overwrite.
+            // For a locked-out student (forgot password, OTP not received),
+            // the admin can force-reset to the phone-as-password default.
+            if (err?.response?.status === 409 && err?.response?.data?.code === 'CUSTOM_PASSWORD_SET') {
+                const ok = window.confirm(
+                    `${student.name} has set their own password.\n\n` +
+                    `Reset it to their phone number (${student.mobile || 'on file'}) as the password? ` +
+                    `They'll be able to log in with their phone number as both username and password, ` +
+                    `and the credentials email will be re-sent.`
+                );
+                if (!ok) { setResendLoading(null); return; }
+                try {
+                    await api.post('/admin/resend-credentials', { ...identify, force: true });
+                    toast.success(`Password reset to phone number — credentials sent to ${student.email}.`);
+                } catch (e2: any) {
+                    toast.error(e2?.response?.data?.message ?? 'Failed to reset credentials');
+                }
+            } else {
+                toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            }
         } finally {
             setResendLoading(null);
         }
