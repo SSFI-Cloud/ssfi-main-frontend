@@ -12,6 +12,7 @@ import {
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
+import { compressImage } from '@/lib/utils/imageCompress';
 
 const BLOOD_GROUPS = ['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','O_POSITIVE','O_NEGATIVE','AB_POSITIVE','AB_NEGATIVE'];
 const ACADEMIC_BOARDS = ['STATE','CBSE','ICSE','OTHER'];
@@ -53,6 +54,10 @@ export default function EditStudentPage() {
     const [originalAadhaar, setOriginalAadhaar] = useState('');
     const [hasBirthCert, setHasBirthCert] = useState(false);
     const [downloadingCert, setDownloadingCert] = useState(false);
+    // Profile photo (base64 dataURI). Only sent on save when changed.
+    const [profilePhoto, setProfilePhoto] = useState<string>('');
+    const [profilePhotoChanged, setProfilePhotoChanged] = useState(false);
+    const [photoError, setPhotoError] = useState<string | null>(null);
 
     const [form, setForm] = useState<FormData>({
         firstName: '', lastName: '', dateOfBirth: '', gender: 'MALE',
@@ -122,6 +127,8 @@ export default function EditStudentPage() {
                 });
                 setOriginalAadhaar(s.aadhaarNumber || '');
                 setHasBirthCert(!!s.birthCertificate);
+                setProfilePhoto(s.profilePhoto || '');
+                setProfilePhotoChanged(false);
                 // Prime the cascading lists so the current district/club
                 // options are visible without waiting for the user to
                 // click through the state picker.
@@ -184,6 +191,31 @@ export default function EditStudentPage() {
         }
     };
 
+    // Resolve the current photo for preview: base64/http used as-is, a
+    // stored /uploads path is prefixed with the API origin.
+    const photoSrc = (() => {
+        if (!profilePhoto) return '';
+        if (profilePhoto.startsWith('data:') || profilePhoto.startsWith('http')) return profilePhoto;
+        return `https://api.ssfiskate.com${profilePhoto.startsWith('/') ? '' : '/'}${profilePhoto}`;
+    })();
+
+    // Admin picks a new profile photo → compress to base64 and stage it.
+    const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setPhotoError(null);
+        if (!file.type.startsWith('image/')) { setPhotoError('Please choose an image file'); return; }
+        try {
+            const b64 = await compressImage(file);
+            setProfilePhoto(b64);
+            setProfilePhotoChanged(true);
+        } catch {
+            setPhotoError('Could not process that image. Try another.');
+        } finally {
+            e.target.value = '';
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
@@ -224,6 +256,8 @@ export default function EditStudentPage() {
                     && (form.aadhaarNumber || '').replace(/\D/g, '').length > 0
                     ? { aadhaarNumber: (form.aadhaarNumber || '').replace(/\D/g, '') }
                     : {}),
+                // Profile photo: only sent when the admin actually replaced it.
+                ...(profilePhotoChanged ? { profilePhoto } : {}),
                 addressLine1: form.addressLine1,
                 city: form.city,
                 pincode: form.pincode,
@@ -307,6 +341,30 @@ export default function EditStudentPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
+
+                {/* Profile Photo */}
+                <Section title="Profile Photo" icon={Camera} color="blue">
+                    <div className="flex items-center gap-5">
+                        <div className="w-28 h-28 rounded-xl border-2 border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center flex-shrink-0">
+                            {photoSrc ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={photoSrc} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <User className="w-12 h-12 text-gray-300" />
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-600 mb-3">
+                                {profilePhotoChanged ? 'New photo selected — it will be saved when you click Save Changes.' : 'Upload or replace the student’s profile photo.'}
+                            </p>
+                            <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 cursor-pointer">
+                                <Camera className="w-4 h-4" /> {photoSrc ? 'Replace photo' : 'Add photo'}
+                                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+                            </label>
+                            {photoError && <p className="text-xs text-red-600 mt-2">{photoError}</p>}
+                        </div>
+                    </div>
+                </Section>
 
                 {/* Personal Info */}
                 <Section title="Personal Information" icon={User} color="blue">
