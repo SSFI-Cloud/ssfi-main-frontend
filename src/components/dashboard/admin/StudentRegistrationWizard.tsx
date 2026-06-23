@@ -198,6 +198,15 @@ export default function StudentRegistrationWizard() {
             if (!formData.pincode.trim()) errs.pincode = 'Pincode is required';
             else if (!/^\d{6}$/.test(formData.pincode.trim())) errs.pincode = 'Enter valid 6-digit pincode';
         } else if (step === 6) {
+            // Age/identity proof: a 12-digit Aadhaar number OR a birth
+            // certificate. Mirrors the backend's birth-certificate path so the
+            // admin gets a clear inline message instead of an opaque submit
+            // failure. Profile photo is optional and can be added later.
+            const hasAadhaar = /^\d{12}$/.test((formData.aadhaarNumber || '').trim());
+            const hasCert = !!formData.birthCertificate;
+            if (!hasAadhaar && !hasCert) {
+                errs.aadhaarNumber = 'Enter a 12-digit Aadhaar number or upload a birth certificate';
+            }
             if (!formData.termsAccepted) errs.termsAccepted = 'You must accept the terms';
         }
 
@@ -245,6 +254,11 @@ export default function StudentRegistrationWizard() {
         profilePhoto: formData.profilePhoto || undefined,
         birthCertificate: formData.birthCertificate || undefined,
         termsAccepted: true,
+        // Admin-initiated registration never runs DigiLocker KYC. Flag the
+        // birth-certificate verification path so the backend validates against
+        // it (age proof = typed Aadhaar OR birth certificate) instead of
+        // defaulting to the strict DigiLocker path and rejecting every submit.
+        verificationMethod: 'birth_certificate',
         kycVerified: false,
     });
 
@@ -269,7 +283,20 @@ export default function StudentRegistrationWizard() {
                 throw new Error('Failed to create payment order');
             }
         } catch (err: any) {
-            setError(err.response?.data?.message || err.message || 'Registration failed');
+            // The backend returns field-level Zod issues under
+            // response.data.errors = [{ field, message }, ...]. Surface those
+            // specific messages instead of the generic "Validation failed" so
+            // the admin knows exactly what to fix.
+            const payload = err.response?.data;
+            const fieldErrs: Array<{ field: string; message: string }> = payload?.errors || [];
+            const detail = fieldErrs.length
+                ? fieldErrs.slice(0, 3).map((e) => e.message).join(' ')
+                : null;
+            const msg = detail || payload?.message || err.message || 'Registration failed';
+            setError(msg);
+            // If the failure is a field the admin fills on step 6 (proof / terms)
+            // or earlier, drop them back to the Documents step where the inputs live.
+            if (detail) setCurrentStep(6);
         } finally {
             setIsLoading(false);
         }
@@ -657,10 +684,12 @@ export default function StudentRegistrationWizard() {
                                 {currentStep === 6 && (
                                     <div className="space-y-5">
                                         <div>
-                                            <label className={labelClass}>Aadhaar Number</label>
+                                            <label className={labelClass}>Aadhaar Number <span className="text-gray-400 font-normal">(or birth certificate below)</span></label>
                                             <input type="text" value={formData.aadhaarNumber}
                                                 onChange={e => updateField('aadhaarNumber', e.target.value.replace(/\D/g, '').slice(0, 12))}
                                                 placeholder="12-digit Aadhaar number" className={inputClass('aadhaarNumber')} />
+                                            <FieldError field="aadhaarNumber" />
+                                            <p className="text-xs text-gray-400 mt-1">Provide a 12-digit Aadhaar number <strong>or</strong> upload a birth certificate as age/identity proof. Profile photo is optional and can be added later.</p>
                                         </div>
 
                                         {/* Profile Photo */}
