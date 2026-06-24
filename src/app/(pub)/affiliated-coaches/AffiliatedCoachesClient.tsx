@@ -19,6 +19,9 @@ interface Coach {
 interface Program {
   id: number; level: number; title: string; city: string; state: string;
   startDate: string; lastDateToApply: string; totalSeats: number; filledSeats: number;
+  // Backend-derived open/closed status (deadline + capacity + admin intent).
+  // Optional — falls back to the inline deadline/seats check when absent.
+  registrationStatus?: { open: boolean; label?: string };
 }
 
 const LEVEL_CFG: Record<number, { gradient: string; badge: string; label: string }> = {
@@ -196,16 +199,35 @@ export default function AffiliatedCoachesClient() {
                 <div className="p-4 space-y-2.5">
                   {programs.length === 0 ? (
                     <p className="text-gray-400 text-sm text-center py-4">No upcoming programs</p>
-                  ) : programs.slice(0, 3).map(p => (
+                  ) : programs.slice(0, 3).map(p => {
+                    // Mirror the /coach-certification page's closed-logic so the
+                    // two views never disagree. A program past its apply-by date
+                    // (or full) showed a green "N spots left" here even though the
+                    // catalog said "Registration Closed" — surface the real status.
+                    const spotsLeft = Math.max(0, p.totalSeats - p.filledSeats);
+                    const deadline = p.lastDateToApply ? new Date(p.lastDateToApply) : null;
+                    if (deadline) deadline.setHours(23, 59, 59, 999);
+                    const deadlinePassed = p.registrationStatus
+                      ? !p.registrationStatus.open
+                      : (deadline ? deadline < new Date() : false);
+                    const closed = deadlinePassed || spotsLeft <= 0;
+                    const closedLabel = p.registrationStatus?.label
+                      || (spotsLeft <= 0 && !deadlinePassed ? 'Fully booked' : 'Registration closed');
+                    return (
                     <Link key={p.id} href="/coach-certification" className="block p-3 rounded-xl bg-gray-50 border border-gray-100 hover:border-emerald-200 transition-all">
                       <h4 className="text-gray-900 text-sm font-bold mb-1.5">{p.title}</h4>
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400">
                         <span className="flex items-center gap-1"><Calendar className="w-2.5 h-2.5" />{new Date(p.startDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         <span className="flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{p.city}</span>
                       </div>
-                      <span className="inline-block mt-2 text-emerald-600 text-[11px] font-bold">{Math.max(0, p.totalSeats - p.filledSeats)} spots left</span>
+                      {closed ? (
+                        <span className="inline-block mt-2 text-gray-400 text-[11px] font-bold">{closedLabel}</span>
+                      ) : (
+                        <span className="inline-block mt-2 text-emerald-600 text-[11px] font-bold">{spotsLeft} spots left</span>
+                      )}
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
