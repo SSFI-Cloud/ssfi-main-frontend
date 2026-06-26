@@ -53,6 +53,12 @@ function SuccessContent() {
   const isRenewal = searchParams.get('renewed') === 'true';
 
   const config = typeConfig[type] || typeConfig['student'];
+  // Students auto-approve the moment payment succeeds — they are NOT pending
+  // admin review (only secretaries/clubs are). This page used to tell every
+  // student "pending admin review / you'll be emailed once approved", which
+  // is wrong and alarming. Show confirmed/active messaging for students;
+  // keep the review wording for secretary/club applications.
+  const isStudentApproved = type === 'student' && !isRenewal;
 
   return (
     <div className="min-h-screen bg-[#f5f6f8]">
@@ -62,11 +68,13 @@ function SuccessContent() {
           <div className={`inline-flex items-center gap-2 px-3 py-1 ${config.badge} border ${config.badgeBorder} rounded-full text-xs font-medium mb-4`}>
             <span className="w-1.5 h-1.5 rounded-full bg-current" /> SSFI Affiliation
           </div>
-          <h1 className="text-2xl font-bold">{isRenewal ? 'Membership Renewed!' : 'Registration Submitted!'}</h1>
+          <h1 className="text-2xl font-bold">{isRenewal ? 'Membership Renewed!' : isStudentApproved ? 'Registration Confirmed!' : 'Registration Submitted!'}</h1>
           <p className="text-white/50 text-sm mt-2">
             {isRenewal
               ? 'Your membership has been renewed successfully.'
-              : 'Your application has been received and is under admin review.'}
+              : isStudentApproved
+                ? 'Your registration is confirmed — you can log in right away.'
+                : 'Your application has been received and is under admin review.'}
           </p>
         </div>
       </div>
@@ -95,12 +103,16 @@ function SuccessContent() {
             <h2 className="text-xl font-bold text-gray-900 mb-2">
               {isRenewal
                 ? `${config.label} Renewed`
-                : `${config.label} Application Submitted`}
+                : isStudentApproved
+                  ? `${config.label} Confirmed`
+                  : `${config.label} Application Submitted`}
             </h2>
             <p className="text-gray-500 text-sm leading-relaxed mb-6">
               {isRenewal
                 ? 'Your membership has been extended. Login to view your updated profile.'
-                : 'Your application is now pending admin review. You will receive an email notification once approved.'}
+                : isStudentApproved
+                  ? 'Your registration is confirmed and active. You can log in now using your phone number (or UID) and the password sent to your email.'
+                  : 'Your application is now pending admin review. You will receive an email notification once approved.'}
             </p>
 
             {/* UID box */}
@@ -145,8 +157,10 @@ function SuccessContent() {
           </div>
         </motion.div>
 
-        {/* Next steps */}
-        {!isRenewal && (
+        {/* Next steps — only for applications that actually go through manual
+            review (secretary/club). Students are auto-approved, so showing them
+            "an admin will review / you'll be emailed when approved" is wrong. */}
+        {!isRenewal && !isStudentApproved && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
