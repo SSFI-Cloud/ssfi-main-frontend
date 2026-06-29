@@ -226,7 +226,7 @@ export default function EditClubPage() {
                                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                                 >
                                     <option value="">Select state</option>
-                                    {statesList.map((s: any) => (
+                                    {(statesList || []).map((s: any) => (
                                         <option key={s.id} value={s.id}>{s.name}</option>
                                     ))}
                                 </select>
@@ -247,7 +247,7 @@ export default function EditClubPage() {
                                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                 >
                                     <option value="">{form.stateId ? 'Select district' : 'Pick state first'}</option>
-                                    {districtsList.map((d: any) => (
+                                    {(districtsList || []).map((d: any) => (
                                         <option key={d.id} value={d.id}>{d.name}</option>
                                     ))}
                                 </select>
