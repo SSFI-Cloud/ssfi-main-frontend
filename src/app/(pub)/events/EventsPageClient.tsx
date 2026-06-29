@@ -235,7 +235,9 @@ export default function EventsPageClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<EventQueryParams>({
-    page: 1, limit: 100, sortBy: 'eventDate', sortOrder: 'desc',
+    // public:true → API returns only public-cycle events (never DRAFT/REJECTED)
+    // even for a logged-in admin, so pending events never appear here.
+    page: 1, limit: 100, sortBy: 'eventDate', sortOrder: 'desc', public: true,
   });
 
   const { fetchEvents, data, isLoading, error } = useEvents();
@@ -255,10 +257,10 @@ export default function EventsPageClient() {
     setFilters(p => ({ ...p, [key]: value || undefined, page: 1 }));
   const clearFilters = () => {
     setSearchQuery('');
-    setFilters({ page: 1, limit: 100, sortBy: 'eventDate', sortOrder: 'desc' });
+    setFilters({ page: 1, limit: 100, sortBy: 'eventDate', sortOrder: 'desc', public: true });
   };
   const activeFilterCount = Object.keys(filters).filter(
-    k => !['page','limit','sortBy','sortOrder','upcoming'].includes(k) && filters[k as keyof EventQueryParams]
+    k => !['page','limit','sortBy','sortOrder','upcoming','public'].includes(k) && filters[k as keyof EventQueryParams]
   ).length;
 
   // Split events: first 9 as cards (recent/live), rest as table

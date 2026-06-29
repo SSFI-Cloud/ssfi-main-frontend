@@ -99,6 +99,9 @@ export interface EventQueryParams {
     discipline?: Discipline;
     stateId?: string;
     upcoming?: boolean;
+    // Public listings (events page / homepage) set this so the API returns only
+    // public-cycle events (never DRAFT/REJECTED), regardless of who is logged in.
+    public?: boolean;
     sortBy?: 'eventDate' | 'name' | 'registrationEndDate';
     sortOrder?: 'asc' | 'desc';
 }

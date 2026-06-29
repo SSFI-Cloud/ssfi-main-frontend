@@ -211,7 +211,9 @@ const FeaturedChampionships = () => {
     const fetchEvents = async () => {
       try {
         const response = await apiClient.get('/events', {
-          params: { limit: 20, upcoming: true }
+          // public:true → only public-cycle events (never DRAFT/REJECTED), even
+          // when an admin is logged in, so the homepage never shows pending events.
+          params: { limit: 20, upcoming: true, public: true }
         });
         const data = response.data;
 
