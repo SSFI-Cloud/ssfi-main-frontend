@@ -119,15 +119,34 @@ export default function StatesPage() {
             toast.error('No secretary email or phone on file for this state');
             return;
         }
+        const identify: Record<string, any> = {
+            email: state.secretaryEmail || undefined,
+            phone: state.secretaryPhone || undefined,
+        };
         setResendLoading(state.id);
         try {
-            await api.post('/admin/resend-credentials', {
-                email: state.secretaryEmail || undefined,
-                phone: state.secretaryPhone || undefined,
-            });
+            await api.post('/admin/resend-credentials', identify);
             toast.success(`Credentials sent to ${state.secretaryEmail || state.secretaryPhone}`);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            // Custom-password users are protected from accidental overwrite. Let
+            // the admin force-reset to the phone-as-password default so the
+            // secretary can log in with their phone as username AND password.
+            if (err?.response?.status === 409 && err?.response?.data?.code === 'CUSTOM_PASSWORD_SET') {
+                const ok = window.confirm(
+                    `This secretary has set their own password.\n\n` +
+                    `Reset it to their phone number (${state.secretaryPhone || 'on file'}) as the password? ` +
+                    `They'll be able to log in with their phone number as both username and password.`
+                );
+                if (!ok) { setResendLoading(null); return; }
+                try {
+                    await api.post('/admin/resend-credentials', { ...identify, force: true });
+                    toast.success('Password reset to phone number — credentials sent.');
+                } catch (e2: any) {
+                    toast.error(e2?.response?.data?.message ?? 'Failed to reset credentials');
+                }
+            } else {
+                toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            }
         } finally {
             setResendLoading(null);
         }

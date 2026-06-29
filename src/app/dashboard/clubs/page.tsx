@@ -144,12 +144,32 @@ export default function ClubsPage() {
     };
 
     const handleResendCredentials = async (club: Club) => {
+        const realPhone = /^[6-9]\d{9}$/.test(club.mobile_number || '') ? club.mobile_number : undefined;
+        const identify: Record<string, any> = { email: club.email_address || undefined, ...(realPhone ? { phone: realPhone } : {}) };
         setResendLoading(club.id);
         try {
-            await api.post('/admin/resend-credentials', { email: club.email_address });
+            await api.post('/admin/resend-credentials', identify);
             toast.success(`Credentials sent to ${club.email_address}`);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            // Custom-password owners are protected from accidental overwrite. Let
+            // the admin force-reset to the phone-as-password default so the owner
+            // can log in with their phone as username AND password.
+            if (err?.response?.status === 409 && err?.response?.data?.code === 'CUSTOM_PASSWORD_SET') {
+                const ok = window.confirm(
+                    `This club owner has set their own password.\n\n` +
+                    `Reset it to their phone number (${club.mobile_number || 'on file'}) as the password? ` +
+                    `They'll be able to log in with their phone number as both username and password.`
+                );
+                if (!ok) { setResendLoading(null); return; }
+                try {
+                    await api.post('/admin/resend-credentials', { ...identify, force: true });
+                    toast.success('Password reset to phone number — credentials sent.');
+                } catch (e2: any) {
+                    toast.error(e2?.response?.data?.message ?? 'Failed to reset credentials');
+                }
+            } else {
+                toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            }
         } finally {
             setResendLoading(null);
         }

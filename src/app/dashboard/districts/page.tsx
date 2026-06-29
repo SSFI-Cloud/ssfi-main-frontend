@@ -139,15 +139,36 @@ export default function DistrictsPage() {
             toast.error('No secretary email or phone on file for this district');
             return;
         }
+        const identify: Record<string, any> = {
+            email: district.secretaryEmail || undefined,
+            phone: district.secretaryPhone && district.secretaryPhone !== 'N/A' ? district.secretaryPhone : undefined,
+        };
         setResendLoading(district.id);
         try {
-            await api.post('/admin/resend-credentials', {
-                email: district.secretaryEmail || undefined,
-                phone: district.secretaryPhone !== 'N/A' ? district.secretaryPhone : undefined,
-            });
+            await api.post('/admin/resend-credentials', identify);
             toast.success(`Credentials sent to ${district.secretaryEmail || district.secretaryPhone}`);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            // Custom-password users are protected from accidental overwrite. If
+            // the secretary set their own password (or is locked out and can't
+            // log in), let the admin force-reset to the phone-as-password
+            // default so they can log in with their phone as username AND
+            // password, and the credentials email is re-sent.
+            if (err?.response?.status === 409 && err?.response?.data?.code === 'CUSTOM_PASSWORD_SET') {
+                const ok = window.confirm(
+                    `This secretary has set their own password.\n\n` +
+                    `Reset it to their phone number (${district.secretaryPhone || 'on file'}) as the password? ` +
+                    `They'll be able to log in with their phone number as both username and password.`
+                );
+                if (!ok) { setResendLoading(null); return; }
+                try {
+                    await api.post('/admin/resend-credentials', { ...identify, force: true });
+                    toast.success('Password reset to phone number — credentials sent.');
+                } catch (e2: any) {
+                    toast.error(e2?.response?.data?.message ?? 'Failed to reset credentials');
+                }
+            } else {
+                toast.error(err?.response?.data?.message ?? 'Failed to send credentials');
+            }
         } finally {
             setResendLoading(null);
         }

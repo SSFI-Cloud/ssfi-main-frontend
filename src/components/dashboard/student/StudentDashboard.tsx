@@ -44,6 +44,14 @@ export default function StudentDashboardComponent() {
     ? Math.ceil((new Date(membership.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
   const showRenewalBanner = daysUntilExpiry > 0 && daysUntilExpiry <= 30;
 
+  // Build display strings defensively. Older/legacy students can have a null
+  // district (and occasionally no last name), which used to render the literal
+  // word "undefined" in the hero — e.g. "Tamil Nadu, undefined". Drop the
+  // missing parts instead of printing "undefined".
+  const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ') || 'Member';
+  const location = [profile.state, profile.district].filter(Boolean).join(', ');
+  const heroSubtitle = [profile.ageCategory, location].filter(Boolean).join(' · ');
+
   return (
     <div className="space-y-6">
       {showRenewalBanner && (
@@ -55,10 +63,10 @@ export default function StudentDashboardComponent() {
           The hero now just shows name / role / subtitle / stats; the
           photo is reachable from the profile sidebar / edit page. */}
       <DashboardHero
-        name={`${profile.firstName} ${profile.lastName}`}
+        name={fullName}
         role="Student Athlete"
         roleColor="green"
-        subtitle={`${profile.ageCategory} · ${profile.state}, ${profile.district}`}
+        subtitle={heroSubtitle}
         stats={[
           { label: 'SSFI ID', value: profile.uid },
           { label: 'Events Registered', value: stats.totalEventsRegistered },
