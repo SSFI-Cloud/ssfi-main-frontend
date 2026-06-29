@@ -61,8 +61,11 @@ export default function EditDistrictPage() {
 
     const [form, setForm] = useState<FormData>({ name: '', code: '', stateId: '', logo: '', isActive: true });
 
-    // Secretary edit state — collapsed by default.
-    const [secretaryOpen, setSecretaryOpen] = useState(false);
+    // Secretary edit state — expanded by default so the admin immediately
+    // sees the full, editable secretary form (name, gender, email, phone,
+    // Aadhaar, association, address, photo, ID proof, logo, registration copy)
+    // rather than a collapsed one-line summary. Still collapsible.
+    const [secretaryOpen, setSecretaryOpen] = useState(true);
     const [secretary, setSecretary] = useState<SecretaryFormData>({
         id: null, name: '', gender: 'MALE', email: '', phone: '',
         aadhaarNumber: '', associationName: '', residentialAddress: '',
