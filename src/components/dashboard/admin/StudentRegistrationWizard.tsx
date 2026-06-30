@@ -242,6 +242,13 @@ export default function StudentRegistrationWizard() {
         nomineeAge: formData.nomineeAge,
         nomineePhone: formData.nomineePhone.trim(),
         clubId: Number(formData.clubId),
+        // The skater's state/district come from the Club & Coach cascade (the
+        // State/District selectors that drive the club dropdown). The backend
+        // registerStudent REQUIRES these — without them it rejects with "State
+        // is required" even though the admin clearly picked a state. Send the
+        // numeric ids the cascade captured.
+        stateId: clubStateId || undefined,
+        districtId: clubDistrictId || undefined,
         coachName: formData.coachName.trim() || undefined,
         coachPhone: formData.coachPhone.trim() || undefined,
         skateCategory: formData.skateCategory || undefined,
