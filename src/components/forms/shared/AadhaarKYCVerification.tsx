@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Shield, CheckCircle2, AlertCircle, Loader2, RotateCcw, ExternalLink, Camera, Upload, HelpCircle } from 'lucide-react';
 import { useKYC, KycResult } from '@/lib/hooks/useKYC';
 import KycHelpGuide from './KycHelpGuide';
@@ -78,9 +78,22 @@ export default function AadhaarKYCVerification({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Notify parent when verified
+  // Notify parent when verified — exactly ONCE per verification result.
+  //
+  // `onVerified` sits in this effect's deps, and both parents (DocumentsStep
+  // and the renewal panel in StudentRegistrationForm) recreate their handler
+  // on every render. The handlers themselves update state (formData /
+  // kycSaving), which re-renders the parent, which mints a NEW handler
+  // identity, which re-fired this effect... an endless loop in which every
+  // cycle re-POSTed the parent's save call (/kyc/sessions or
+  // /renew/save-kyc). On 2026-07-09 single students generated 3,000+
+  // rate-limited requests this way. Guard by result identity: notify once
+  // per distinct result object; a fresh verification produces a new result
+  // object and still notifies.
+  const lastNotifiedRef = useRef<KycResult | null>(null);
   useEffect(() => {
-    if (result?.verified) {
+    if (result?.verified && lastNotifiedRef.current !== result) {
+      lastNotifiedRef.current = result;
       onVerified(result);
     }
   }, [result, onVerified]);
