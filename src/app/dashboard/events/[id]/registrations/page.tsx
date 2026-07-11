@@ -70,6 +70,13 @@ function AdminRegistrationsContent() {
     const [suitSize, setSuitSize] = useState('');
     const [manualRemarks, setManualRemarks] = useState('');
     const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+    // Default categories; replaced by the event's own raceConfig categories on lookup
+    const [eventCategories, setEventCategories] = useState<Array<{ name: string; label?: string }>>([
+        { name: 'BEGINNER', label: 'Beginner' },
+        { name: 'RECREATIONAL', label: 'Recreational' },
+        { name: 'QUAD', label: 'Tenacity (Quads)' },
+        { name: 'PRO_INLINE', label: 'Inline (Professional)' },
+    ]);
 
     useEffect(() => {
         if (token) {
@@ -147,7 +154,15 @@ function AdminRegistrationsContent() {
         if (!manualUid) return toast.error('Please enter Membership ID or UID');
         try {
             setIsLookingUp(true);
-            const result = await portalService.lookupStudent(manualUid, eventId);
+            // Load the organizer's configured categories for THIS event (falls
+            // back to the default four when the event has no raceConfig).
+            portalService.getEventCategories(eventId)
+                .then((res: any) => {
+                    const cats = res?.data || res || [];
+                    if (Array.isArray(cats) && cats.length > 0) setEventCategories(cats);
+                })
+                .catch(() => { /* keep defaults */ });
+            const result = await portalService.lookupStudent(manualUid, eventId, token || undefined);
             if (result.status === 'success') {
                 setFoundStudent(result.data.student);
                 setManualEventDetails(result.data.event);
@@ -172,7 +187,8 @@ function AdminRegistrationsContent() {
 
         if (category && foundStudent?.ageCategory) {
             try {
-                const res = await portalService.getAvailableRaces(category, foundStudent.ageCategory);
+                // Pass eventId so events with a custom raceConfig list THEIR races
+                const res = await portalService.getAvailableRaces(category, foundStudent.ageCategory, eventId);
                 if (res.status === 'success') {
                     setAvailableRaces(res.data.availableRaces);
                 }
@@ -189,6 +205,19 @@ function AdminRegistrationsContent() {
         } else {
             if (selectedRaces.length >= 3) return toast.error('Max 3 races allowed'); // Basic rule
             setSelectedRaces(prev => [...prev, race]);
+        }
+    };
+
+    const handleCancelRegistration = async (reg: any) => {
+        if (!token) return;
+        const name = reg.student?.name || reg.studentName || 'this student';
+        if (!window.confirm(`Cancel the registration for ${name}? The slot can be re-registered later.`)) return;
+        try {
+            await portalService.cancelRegistration(reg.id, token, 'Cancelled by organiser from dashboard');
+            toast.success('Registration cancelled');
+            fetchRegistrations();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to cancel registration');
         }
     };
 
@@ -342,6 +371,7 @@ function AdminRegistrationsContent() {
                                     <th className="p-4 font-medium">Status</th>
                                     <th className="p-4 font-medium">Payment</th>
                                     <th className="p-4 font-medium text-right">Fee</th>
+                                    <th className="p-4 font-medium text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
@@ -412,6 +442,19 @@ function AdminRegistrationsContent() {
                                         </td>
                                         <td className="p-4 text-right font-medium text-gray-700">
                                             ₹{reg.totalFee}
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            {reg.status !== 'CANCELLED' ? (
+                                                <button
+                                                    onClick={() => handleCancelRegistration(reg)}
+                                                    className="p-1.5 rounded-md text-red-500 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+                                                    title="Cancel this registration"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-gray-400">Cancelled</span>
+                                            )}
                                         </td>
                                     </motion.tr>
                                 ))}
@@ -488,10 +531,9 @@ function AdminRegistrationsContent() {
                                                 className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 text-gray-900 outline-none"
                                             >
                                                 <option value="">Select Category</option>
-                                                <option value="BEGINNER">Beginner</option>
-                                                <option value="RECREATIONAL">Recreational</option>
-                                                <option value="QUAD">Tenacity (Quads)</option>
-                                                <option value="PRO_INLINE">Inline (Professional)</option>
+                                                {eventCategories.map(cat => (
+                                                    <option key={cat.name} value={cat.name}>{cat.label || cat.name}</option>
+                                                ))}
                                             </select>
                                         </div>
 
@@ -569,7 +611,9 @@ function AdminRegistrationsContent() {
                                     className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
                                 >
                                     {isSubmittingManual && <Loader2 className="w-4 h-4 animate-spin" />}
-                                    Register (Waive Fee)
+                                    {/* Backend records the fee as collected offline (PAID,
+                                        amountPaid = totalFee) — say so, don't claim a waiver. */}
+                                    Register (Mark Paid – Offline)
                                 </button>
                             </div>
                         </motion.div>

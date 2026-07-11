@@ -98,11 +98,15 @@ export const portalService = {
         return response.blob();
     },
 
-    lookupStudent: async (uid: string, eventId: number | string) => {
-        // Public endpoint
+    lookupStudent: async (uid: string, eventId: number | string, token?: string) => {
+        // The lookup route is auth-protected; cookies don't travel cross-origin
+        // from the dashboard, so pass the bearer token explicitly.
         const response = await fetch(`${API_URL}/event-registration/lookup`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({ uid, eventId: Number(eventId) })
         });
         if (!response.ok) {
@@ -112,10 +116,35 @@ export const portalService = {
         return response.json();
     },
 
-    getAvailableRaces: async (category: string, ageGroup: string) => {
-        // Public endpoint
-        const response = await fetch(`${API_URL}/event-registration/races?category=${category}&ageGroup=${ageGroup}`);
+    getAvailableRaces: async (category: string, ageGroup: string, eventId?: number | string) => {
+        // Public endpoint. Pass eventId so events with a custom raceConfig
+        // return THEIR races, not the global defaults.
+        const eventParam = eventId ? `&eventId=${eventId}` : '';
+        const response = await fetch(`${API_URL}/event-registration/races?category=${category}&ageGroup=${ageGroup}${eventParam}`);
         if (!response.ok) throw new Error('Failed to fetch races');
+        return response.json();
+    },
+
+    getEventCategories: async (eventId: number | string) => {
+        // Public endpoint — the organizer's configured categories for an event.
+        const response = await fetch(`${API_URL}/event-registration/event-categories/${eventId}`);
+        if (!response.ok) throw new Error('Failed to fetch event categories');
+        return response.json();
+    },
+
+    cancelRegistration: async (registrationId: number, token: string, reason?: string) => {
+        const response = await fetch(`${API_URL}/event-registration/${registrationId}/cancel`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ reason })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.message || 'Failed to cancel registration');
+        }
         return response.json();
     },
 
