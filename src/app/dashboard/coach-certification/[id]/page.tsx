@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 import toast from 'react-hot-toast';
 import DownloadButton from '@/components/shared/DownloadButton';
 import AddCoachParticipantModal from '@/components/dashboard/AddCoachParticipantModal';
@@ -332,7 +333,11 @@ export default function ProgramDetailPage() {
                             </select>
                           </>
                         )}
-                        {r.isCompleted && <span className="text-xs text-teal-400">&#10003; Certified</span>}
+                        {r.isCompleted && (
+                            <span className="text-xs text-teal-500" title={r.certificateNumber ? `Certificate ${r.certificateNumber}` : undefined}>
+                                &#10003; Certified{r.certificateNumber ? ` · ${r.certificateNumber}` : ''}
+                            </span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -434,9 +439,7 @@ export default function ProgramDetailPage() {
                           {editForm.photo ? (
                             <div className="flex items-center gap-3">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={editForm.photo.startsWith('http') || editForm.photo.startsWith('data:')
-                                  ? editForm.photo
-                                  : 'https://api.ssfiskate.com/' + editForm.photo.replace(/^\//, '')}
+                              <img src={resolveImageUrl(editForm.photo)}
                                 alt="Participant photo"
                                 className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
                               <DownloadButton url={editForm.photo}

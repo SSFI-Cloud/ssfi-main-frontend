@@ -240,7 +240,11 @@ export default function ProgramDetailPage() {
                             </select>
                           </>
                         )}
-                        {r.isCompleted && <span className="text-xs text-teal-400">&#10003; Certified</span>}
+                        {r.isCompleted && (
+                            <span className="text-xs text-teal-500" title={r.certificateNumber ? `Certificate ${r.certificateNumber}` : undefined}>
+                                &#10003; Certified{r.certificateNumber ? ` · ${r.certificateNumber}` : ''}
+                            </span>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -255,7 +255,9 @@ function BeginnerRegForm() {
         guardianRelation: student.nomineeRelation === 'Father' ? 'FATHER' : student.nomineeRelation === 'Mother' ? 'MOTHER' : 'GUARDIAN',
         guardianPhone: student.phone,
         guardianEmail: student.email || undefined,
-        aadhaarNumber: '000000000000', // dummy - real aadhaar already in DB, required by schema
+        // No Aadhaar sent — the student's real Aadhaar is already in the DB.
+        // (The old dummy '000000000000' collided on the program's unique
+        // Aadhaar index and blocked every second registrant.)
         declaration1: true,
         declaration2: true,
         declaration3: true,
