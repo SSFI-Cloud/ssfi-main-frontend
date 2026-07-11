@@ -102,14 +102,19 @@ export default function MyEventsPage() {
             // 2. Fetch Certificates/Medals (isolated so events still display on failure)
             try {
                 const certRes = await api.get('/certificates/my');
-                const certs = certRes.data || [];
+                // API body is { success, data: [...] } — unwrap the array, or
+                // certs.forEach / certificates.find below throw and the page crashes.
+                const certs = Array.isArray(certRes.data?.data)
+                    ? certRes.data.data
+                    : Array.isArray(certRes.data) ? certRes.data : [];
                 setCertificates(certs);
 
+                // position is stored as a STRING ('1'/'2'/'3'/'Participant').
                 const counts = { gold: 0, silver: 0, bronze: 0 };
                 certs.forEach((c: any) => {
-                    if (c.position === 1) counts.gold++;
-                    if (c.position === 2) counts.silver++;
-                    if (c.position === 3) counts.bronze++;
+                    if (Number(c.position) === 1) counts.gold++;
+                    if (Number(c.position) === 2) counts.silver++;
+                    if (Number(c.position) === 3) counts.bronze++;
                 });
                 setMedalsCount(counts);
             } catch (error) {

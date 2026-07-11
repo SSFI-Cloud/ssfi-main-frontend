@@ -14,8 +14,11 @@ export default function CertificatesSection() {
         const fetchCertificates = async () => {
             try {
                 const data = await certificateService.getMyCertificates();
-                // @ts-ignore
-                setCertificates(Array.isArray(data) ? data : []);
+                // API body is { success, data: [...] } — unwrap the array.
+                const list = Array.isArray((data as any)?.data)
+                    ? (data as any).data
+                    : Array.isArray(data) ? data : [];
+                setCertificates(list);
             } catch (err) {
                 console.error('Failed to load certificates', err);
             } finally {
@@ -25,6 +28,13 @@ export default function CertificatesSection() {
 
         fetchCertificates();
     }, []);
+
+    // Backend stores position as a STRING ('1'/'2'/'3'/'Participant') — same
+    // contract the /dashboard/certificates page uses.
+    const medalRank = (pos: unknown): number | null => {
+        const n = Number(pos);
+        return n === 1 || n === 2 || n === 3 ? n : null;
+    };
 
     // Helper for medal colors
     const getMedalColor = (pos: number) => {
@@ -59,7 +69,7 @@ export default function CertificatesSection() {
 
     if (isLoading) return <div className="p-4 text-center text-gray-600">Loading certificates...</div>;
 
-    const medals = certificates.filter(c => typeof c.position === 'number');
+    const medals = certificates.filter(c => medalRank(c.position) !== null);
     if (medals.length === 0) return null; // Don't show if empty
 
     return (
@@ -74,22 +84,18 @@ export default function CertificatesSection() {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {certificates.filter(c => typeof c.position === 'number').map((cert) => (
+                {medals.map((cert) => {
+                    const rank = medalRank(cert.position)!;
+                    return (
                     <div key={cert.id} className="bg-[#f5f6f8]/50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
                         <div>
                             <p className="text-sm text-gray-500">{cert.eventDate ? new Date(cert.eventDate).getFullYear() : '2024'}</p>
                             <h3 className="font-bold text-gray-900 text-lg">{cert.eventName}</h3>
                             <p className="text-sm text-gray-700 flex items-center gap-1 mt-1">
-                                {cert.position && typeof cert.position === 'number' ? (
-                                    <>
-                                        <Medal className={`w-4 h-4 ${getMedalColor(cert.position)}`} />
-                                        <span className={getMedalColor(cert.position).split(' ')[0]}>
-                                            {cert.position === 1 ? 'Gold Winner' : cert.position === 2 ? 'Silver Winner' : 'Bronze Winner'}
-                                        </span>
-                                    </>
-                                ) : (
-                                    <span className="text-gray-600">Participant</span>
-                                )}
+                                <Medal className={`w-4 h-4 ${getMedalColor(rank)}`} />
+                                <span className={getMedalColor(rank).split(' ')[0]}>
+                                    {rank === 1 ? 'Gold Winner' : rank === 2 ? 'Silver Winner' : 'Bronze Winner'}
+                                </span>
                             </p>
                         </div>
 
@@ -101,7 +107,8 @@ export default function CertificatesSection() {
                             <Download className="w-5 h-5" />
                         </button>
                     </div>
-                ))}
+                    );
+                })}
             </div>
         </motion.div>
     );

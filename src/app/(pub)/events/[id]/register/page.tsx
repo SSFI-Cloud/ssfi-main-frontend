@@ -126,7 +126,7 @@ export default function EventRegistrationPage() {
   // Step 4 — Confirm
   const [suitSize, setSuitSize]       = useState('M');
   const [submitting, setSubmitting]   = useState(false);
-  const [regSuccess, setRegSuccess]   = useState<{ confirmationNumber: string; totalFee: number } | null>(null);
+  const [regSuccess, setRegSuccess]   = useState<{ registrationId: number; confirmationNumber: string; totalFee: number } | null>(null);
 
   // ── Load event header + categories ──
   useEffect(() => {
@@ -222,7 +222,7 @@ export default function EventRegistrationPage() {
         suitSize,
       });
       const reg = res.data?.data;
-      setRegSuccess({ confirmationNumber: reg.confirmationNumber, totalFee: reg.totalFee });
+      setRegSuccess({ registrationId: reg.id, confirmationNumber: reg.confirmationNumber, totalFee: reg.totalFee });
       toast.success('Registration successful!');
       setStep(5);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -707,7 +707,9 @@ export default function EventRegistrationPage() {
                 {eventFee?.paymentMode !== 'OFFLINE' && (
                   <button
                     onClick={() => router.push(
-                      `/payment?registrationId=${encodeURIComponent(regSuccess.confirmationNumber)}&amount=${regSuccess.totalFee}&eventId=${eventId}&eventName=${encodeURIComponent(event?.name || '')}`
+                      // The payment page needs the NUMERIC registration id (entity_id);
+                      // confirmationNumber is a display string and coerces to NaN there.
+                      `/payment?type=EVENT_REGISTRATION&registrationId=${regSuccess.registrationId}&amount=${regSuccess.totalFee}&eventId=${eventId}&eventName=${encodeURIComponent(event?.name || '')}`
                     )}
                     className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/35 transition-all">
                     <Zap className="w-4 h-4" /> Complete Payment
