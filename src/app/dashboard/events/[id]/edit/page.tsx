@@ -117,7 +117,11 @@ export default function EditEventPage() {
                     return new Date(dateStr).toISOString().split('T')[0];
                 };
 
-                const savedType = event.type || 'Speed Skating';
+                // The API returns disciplines[] and eventType — NOT `type`/`category`.
+                // Prefilling from the missing fields silently reset them to defaults
+                // and re-saved those defaults, overwriting the real values on any edit.
+                const savedType = (Array.isArray(event.disciplines) && event.disciplines[0])
+                    || event.type || 'Speed Skating';
                 if (savedType && !eventTypes.includes(savedType)) {
                     setUseCustomType(true);
                 }
@@ -125,7 +129,7 @@ export default function EditEventPage() {
                     name: event.name || '',
                     code: event.code || '',
                     type: savedType,
-                    category: event.category || 'Championship',
+                    category: event.eventType || event.category || 'Championship',
                     level: event.eventLevel || event.level || 'DISTRICT',
                     stateId: event.stateId ? String(event.stateId) : '',
                     eventDate: formatDate(event.eventDate),

@@ -16,6 +16,7 @@ import {
     Medal
 } from 'lucide-react';
 import { resultService } from '@/services/result.service';
+import { api } from '@/lib/api/client';
 import toast from 'react-hot-toast';
 
 export default function EventResultsPage() {
@@ -53,6 +54,18 @@ export default function EventResultsPage() {
             }
         };
         fetchFilters();
+    }, [eventId]);
+
+    // Seed the publish toggle from the event's actual state — otherwise it
+    // always starts "not published" and the first click re-publishes (and
+    // re-issues certificates) instead of letting the organiser unpublish.
+    useEffect(() => {
+        api.get(`/events/${eventId}`)
+            .then(res => {
+                const ev = res.data?.data ?? res.data;
+                setIsPublished(!!ev?.isResultsPublished);
+            })
+            .catch(() => { /* non-fatal: leave default */ });
     }, [eventId]);
 
     // Derived lists for dropdowns
