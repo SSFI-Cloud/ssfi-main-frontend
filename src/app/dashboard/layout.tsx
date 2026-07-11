@@ -32,6 +32,7 @@ const navItems: NavItem[] = [
   { label: 'Events', href: '/dashboard/events', icon: Trophy, roles: ['GLOBAL_ADMIN', 'STATE_SECRETARY', 'DISTRICT_SECRETARY'] },
   { label: 'My Events',        href: '/dashboard/my-events',    icon: Calendar, roles: ['STUDENT'] },
   { label: 'My Certificates',  href: '/dashboard/certificates', icon: Award,    roles: ['STUDENT'] },
+  { label: 'Skater Results',   href: '/dashboard/skater-results', icon: Medal,  roles: ['STATE_SECRETARY', 'DISTRICT_SECRETARY', 'CLUB_OWNER'] },
   {
     label: 'Approvals', href: '/dashboard/approvals', icon: ClipboardList,
     roles: ['GLOBAL_ADMIN'],

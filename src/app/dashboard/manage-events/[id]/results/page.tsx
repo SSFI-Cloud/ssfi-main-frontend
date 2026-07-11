@@ -110,17 +110,23 @@ export default function EventResultsPage() {
     };
 
     const handleResultChange = (studentId: number, position: number) => {
-        let newResults = [...results];
-
-        // Remove existing result for this student if any
-        newResults = newResults.filter(r => r.studentId !== studentId);
+        // Preserve any timing already entered/loaded for this student —
+        // replacing the whole entry used to wipe timings on every click.
+        const prev = results.find(r => r.studentId === studentId);
+        let newResults = results.filter(r => r.studentId !== studentId);
 
         // Add the new position (multiple students can share the same position)
         if (position > 0) {
-            newResults.push({ studentId, position });
+            newResults.push({ studentId, position, timing: prev?.timing });
         }
 
         setResults(newResults);
+    };
+
+    const handleTimingChange = (studentId: number, timing: string) => {
+        setResults(prev => prev.map(r =>
+            r.studentId === studentId ? { ...r, timing: timing || undefined } : r
+        ));
     };
 
     const handleSave = async () => {
@@ -297,12 +303,13 @@ export default function EventResultsPage() {
                                     <th className="px-6 py-4">Student Name</th>
                                     <th className="px-6 py-4">Club / City</th>
                                     <th className="px-6 py-4 text-center">Result Position</th>
+                                    <th className="px-6 py-4 text-center">Timing</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {participants.length === 0 ? (
                                     <tr>
-                                        <td colSpan={4} className="px-6 py-12 text-center text-gray-600">
+                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-600">
                                             No participants found for this category.
                                         </td>
                                     </tr>
@@ -368,6 +375,17 @@ export default function EventResultsPage() {
                                                             );
                                                         })}
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <input
+                                                        type="text"
+                                                        value={results.find(r => r.studentId === student.id)?.timing || ''}
+                                                        onChange={(e) => handleTimingChange(student.id, e.target.value)}
+                                                        disabled={currentPos === 0}
+                                                        placeholder={currentPos === 0 ? 'Set position first' : 'e.g. 00:45.32'}
+                                                        title={currentPos === 0 ? 'Select a position before entering a timing' : 'Race timing (free format, e.g. 00:45.32)'}
+                                                        className="w-32 mx-auto block px-3 py-1.5 bg-[#f5f6f8] border border-gray-200 rounded-lg text-gray-900 text-sm text-center font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    />
                                                 </td>
                                             </tr>
                                         );
