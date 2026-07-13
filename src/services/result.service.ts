@@ -1,28 +1,10 @@
 import { api } from '@/lib/api/client';
 
 export const resultService = {
-    // get race categories for filter
+    // get race categories for filter (backend returns the array directly)
     getEventRaceCategories: async (eventId: number) => {
         const response = await api.get(`/results/${eventId}/race-categories`);
-        // @ts-ignore
-        return response.data; // Backend returns array directly for these new endpoints? 
-        // Wait, backend uses res.json(result) which is just the array.
-        // It does NOT wrap in { success, data }.
-        // My backend controller: res.json(result);
-        // So response.data IS the array.
-        // BUT client.ts defines ApiResponse wrapper generically but doesn't force backend to use it.
-        // If backend just does res.json([...]), then response.data is [...].
-        // If so, why the error?
-        // "Argument of type 'ApiResponse<any>' is not assignable..."
-        // Because api.get generic defaults to ApiResponse<any>.
-        // Typescript THINKS it is ApiResponse, but at runtime it might be distinct array.
-        // But if I want to be safe, I should verify what backend sends.
-        // Backend: res.json(result) -> array.
-        // So runtime is fine.
-        // The error is TS only.
-        // I should cast it or fix backend to return standard response.
-        // Let's fix backend controller to return standard { success: true, data: result }?
-        // No, quicker to cast here.
+        return response.data;
     },
 
     // get participants for a specific race
@@ -41,5 +23,18 @@ export const resultService = {
     togglePublication: async (eventId: number, isPublished: boolean) => {
         const response = await api.post(`/results/${eventId}/publish`, { isPublished });
         return response.data;
-    }
+    },
+
+    // Next-level selection: roster of confirmed participants with best position
+    // + current selection flag ({ success, data: [...] } wrapper)
+    getSelectionRoster: async (eventId: number) => {
+        const response = await api.get(`/results/${eventId}/selection-roster`);
+        return response.data;
+    },
+
+    // Sync the full list of selected studentIds for the event
+    saveSelections: async (eventId: number, studentIds: number[]) => {
+        const response = await api.post(`/results/${eventId}/selections`, { studentIds });
+        return response.data;
+    },
 };

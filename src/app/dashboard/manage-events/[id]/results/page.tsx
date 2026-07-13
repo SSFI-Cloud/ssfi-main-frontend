@@ -40,6 +40,51 @@ export default function EventResultsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isPublished, setIsPublished] = useState(false);
 
+    // Next-level selection roster (manual promotion district→state→national)
+    const [roster, setRoster] = useState<any[]>([]);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [rosterSearch, setRosterSearch] = useState('');
+    const [rosterLoading, setRosterLoading] = useState(true);
+    const [savingSelections, setSavingSelections] = useState(false);
+
+    const loadRoster = async () => {
+        try {
+            setRosterLoading(true);
+            const res: any = await resultService.getSelectionRoster(eventId);
+            const rows: any[] = Array.isArray(res?.data) ? res.data : [];
+            setRoster(rows);
+            setSelectedIds(new Set(rows.filter(r => r.selected).map(r => r.studentId)));
+        } catch {
+            // Non-fatal: results entry still works without the roster
+            setRoster([]);
+        } finally {
+            setRosterLoading(false);
+        }
+    };
+
+    useEffect(() => { loadRoster(); }, [eventId]);
+
+    const toggleSelection = (studentId: number) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(studentId)) next.delete(studentId); else next.add(studentId);
+            return next;
+        });
+    };
+
+    const handleSaveSelections = async () => {
+        try {
+            setSavingSelections(true);
+            await resultService.saveSelections(eventId, Array.from(selectedIds));
+            toast.success(`Selections saved — ${selectedIds.size} skater(s) selected for the next level`);
+            loadRoster();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Failed to save selections');
+        } finally {
+            setSavingSelections(false);
+        }
+    };
+
     // Fetch filters available for this event
     useEffect(() => {
         const fetchFilters = async () => {
@@ -403,6 +448,115 @@ export default function EventResultsPage() {
                     <p className="text-lg">Please select all filters to load participants</p>
                 </div>
             )}
+
+            {/* ─── Next-Level Selections ─────────────────────────────────────
+                Manual promotion: tick the skaters who advance to the next
+                level (district → state → national). Registration for the
+                next-level meet and its notification emails key off THIS list —
+                positions alone do not qualify anyone. */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="p-6 border-b border-gray-100 flex flex-wrap justify-between items-center gap-3">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <Medal className="w-5 h-5 text-amber-500" />
+                            Next-Level Selections
+                            <span className="text-sm font-medium text-gray-500">({selectedIds.size} selected)</span>
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Tick the skaters who advance to the next level. Only selected skaters can register
+                            for (and are emailed about) the next-level meet.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setSelectedIds(new Set(roster.filter(r => r.bestPosition).map(r => r.studentId)))}
+                            disabled={rosterLoading || roster.length === 0}
+                            className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 disabled:opacity-40"
+                            title="Pre-tick everyone with a recorded position — adjust before saving"
+                        >
+                            Tick all placed
+                        </button>
+                        <button
+                            onClick={handleSaveSelections}
+                            disabled={savingSelections || rosterLoading}
+                            className="flex items-center gap-2 px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors font-medium text-sm"
+                        >
+                            {savingSelections ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            Save Selections
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-4 border-b border-gray-100">
+                    <input
+                        type="text"
+                        value={rosterSearch}
+                        onChange={(e) => setRosterSearch(e.target.value)}
+                        placeholder="Search by name, UID, club..."
+                        className="w-full md:w-80 px-4 py-2 bg-[#f5f6f8] border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                    />
+                </div>
+
+                {rosterLoading ? (
+                    <div className="p-8 text-center text-gray-500 text-sm">
+                        <Loader2 className="w-5 h-5 animate-spin inline mr-2" />Loading participants...
+                    </div>
+                ) : roster.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 text-sm">
+                        No confirmed registrations for this event yet.
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-[#f5f6f8]/60 text-gray-500 text-xs uppercase font-bold tracking-wider sticky top-0">
+                                <tr>
+                                    <th className="px-5 py-3 w-12">Sel.</th>
+                                    <th className="px-5 py-3">Skater</th>
+                                    <th className="px-5 py-3">UID</th>
+                                    <th className="px-5 py-3">Club / District</th>
+                                    <th className="px-5 py-3">Category</th>
+                                    <th className="px-5 py-3 text-center">Best Position</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {roster
+                                    .filter(r => {
+                                        const q = rosterSearch.trim().toLowerCase();
+                                        if (!q) return true;
+                                        return [r.name, r.membershipId, r.clubName, r.districtName]
+                                            .some(v => (v || '').toLowerCase().includes(q));
+                                    })
+                                    .map(r => (
+                                        <tr key={r.studentId}
+                                            onClick={() => toggleSelection(r.studentId)}
+                                            className={`cursor-pointer transition-colors ${selectedIds.has(r.studentId) ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-gray-50'}`}>
+                                            <td className="px-5 py-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(r.studentId)}
+                                                    onChange={() => toggleSelection(r.studentId)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="w-4 h-4 accent-amber-500"
+                                                />
+                                            </td>
+                                            <td className="px-5 py-3 font-medium text-gray-900">{r.name}</td>
+                                            <td className="px-5 py-3 font-mono text-xs text-gray-600">{r.membershipId || '—'}</td>
+                                            <td className="px-5 py-3 text-gray-500 text-xs">{r.clubName || r.districtName || '—'}</td>
+                                            <td className="px-5 py-3 text-gray-500 text-xs">{r.skateCategory} · {r.ageCategory}</td>
+                                            <td className="px-5 py-3 text-center">
+                                                {r.bestPosition ? (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700">
+                                                        <Medal className="w-3.5 h-3.5" />{r.bestPosition}
+                                                    </span>
+                                                ) : <span className="text-gray-400 text-xs">—</span>}
+                                            </td>
+                                        </tr>
+                                    ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
