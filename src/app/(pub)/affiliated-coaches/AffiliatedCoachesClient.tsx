@@ -9,6 +9,7 @@ import {
   Calendar, Clock, CheckCircle2, Users, Shield, Sparkles, Loader2,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 
 interface Coach {
   id: number; name: string; photo: string | null; level: number; levelTitle: string;
@@ -144,7 +145,10 @@ export default function AffiliatedCoachesClient() {
                             <div className="flex items-start gap-4 mb-4">
                               <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 ring-2 ring-gray-100">
                                 {coach.photo ? (
-                                  <Image src={coach.photo} alt={coach.name} fill className="object-cover" sizes="56px" />
+                                  // Photos live on the API server under /uploads — resolve the
+                                  // relative path or the browser requests it from the frontend
+                                  // host and the image breaks. unoptimized: cross-origin URL.
+                                  <Image src={resolveImageUrl(coach.photo)} alt={coach.name} fill unoptimized className="object-cover" sizes="56px" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
                                     <Users className="w-6 h-6" />
