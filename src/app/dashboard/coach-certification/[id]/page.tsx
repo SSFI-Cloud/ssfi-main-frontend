@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, ArrowLeft, Users, Calendar, MapPin, IndianRupee, Download,
-  CheckCircle2, Star, Search, Loader2, Eye, Edit2, X, Save, Plus,
+  CheckCircle2, Search, Loader2, Eye, Edit2, X, Save, Plus,
   FileSpreadsheet
 } from 'lucide-react';
 import Link from 'next/link';
@@ -22,7 +22,7 @@ interface Registration {
   state: string; district: string; city: string; bloodGroup: string | null;
   skatingExperience: number | null; tshirtSize: string | null;
   paymentStatus: string; amount: string; status: string;
-  isCompleted: boolean; rating: string | null; remarks: string | null;
+  isCompleted: boolean; grade: string | null; rating: string | null; remarks: string | null;
   certificateNumber: string | null; createdAt: string;
   // Admin-side fields — surfaced in the edit modal. Present on the
   // detail response, optional here because the list endpoint trims them.
@@ -52,6 +52,14 @@ const PAY_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700', PAID: 'bg-emerald-100 text-emerald-700',
   FAILED: 'bg-red-100 text-red-700', REFUNDED: 'bg-gray-100 text-gray-600',
 };
+// Coach grades (replaced the 1-5 star rating). A+..C pass; Reappear/Absent don't.
+const COACH_GRADES = ['A+', 'A', 'B+', 'B', 'C+', 'C', 'REAPPEAR', 'ABSENT'] as const;
+const GRADE_COLORS: Record<string, string> = {
+  'A+': 'bg-emerald-100 text-emerald-700', 'A': 'bg-emerald-100 text-emerald-700',
+  'B+': 'bg-teal-100 text-teal-700', 'B': 'bg-teal-100 text-teal-700',
+  'C+': 'bg-amber-100 text-amber-700', 'C': 'bg-amber-100 text-amber-700',
+  'REAPPEAR': 'bg-orange-100 text-orange-700', 'ABSENT': 'bg-red-100 text-red-700',
+};
 
 export default function ProgramDetailPage() {
   const { id } = useParams();
@@ -63,7 +71,7 @@ export default function ProgramDetailPage() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [completeModal, setCompleteModal] = useState<Registration | null>(null);
-  const [rating, setRating] = useState(0);
+  const [grade, setGrade] = useState('');
   const [remarks, setRemarks] = useState('');
   const [saving, setSaving] = useState(false);
   const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 1 });
@@ -168,13 +176,14 @@ export default function ProgramDetailPage() {
 
   const handleMarkComplete = async () => {
     if (!completeModal) return;
+    if (!grade) { toast.error('Please select a grade'); return; }
     setSaving(true);
     try {
       await api.put('/coach-cert/registrations/' + completeModal.id + '/mark-complete', {
-        rating: rating || undefined, remarks: remarks || undefined,
+        grade, remarks: remarks || undefined,
       });
       toast.success('Marked as completed');
-      setCompleteModal(null); setRating(0); setRemarks('');
+      setCompleteModal(null); setGrade(''); setRemarks('');
       fetchRegistrations(); fetchProgram();
     } catch (err: any) { toast.error(err?.response?.data?.message || 'Failed'); }
     finally { setSaving(false); }
@@ -285,7 +294,7 @@ export default function ProgramDetailPage() {
                   <th className="px-4 py-3 text-gray-600 font-medium">State</th>
                   <th className="px-4 py-3 text-gray-600 font-medium">Payment</th>
                   <th className="px-4 py-3 text-gray-600 font-medium">Status</th>
-                  <th className="px-4 py-3 text-gray-600 font-medium">Rating</th>
+                  <th className="px-4 py-3 text-gray-600 font-medium">Grade</th>
                   <th className="px-4 py-3 text-gray-600 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -304,8 +313,10 @@ export default function ProgramDetailPage() {
                       <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[r.status] || 'bg-gray-100 text-gray-600'}`}>{r.status}</span>
                     </td>
                     <td className="px-4 py-3">
-                      {r.isCompleted && r.rating ? (
-                        <span className="flex items-center gap-1 text-amber-700 text-xs"><Star className="w-3 h-3 fill-amber-400" />{Number(r.rating).toFixed(1)}</span>
+                      {r.isCompleted && (r.grade || r.rating) ? (
+                        <span className={`inline-block text-xs font-bold px-2 py-1 rounded-md ${GRADE_COLORS[r.grade || ''] || 'bg-amber-100 text-amber-700'}`}>
+                          {r.grade || `${Number(r.rating).toFixed(1)}★`}
+                        </span>
                       ) : <span className="text-gray-500">&mdash;</span>}
                     </td>
                     <td className="px-4 py-3">
@@ -319,7 +330,7 @@ export default function ProgramDetailPage() {
                         </button>
                         {!r.isCompleted && (
                           <>
-                            <button onClick={() => { setCompleteModal(r); setRating(0); setRemarks(''); }}
+                            <button onClick={() => { setCompleteModal(r); setGrade(''); setRemarks(''); }}
                               className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-all" title="Mark Complete">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                             </button>
@@ -372,15 +383,18 @@ export default function ProgramDetailPage() {
               </div>
               <p className="text-sm text-gray-500">Certifying: <span className="text-gray-900 font-medium">{completeModal.fullName}</span></p>
               <div>
-                <label className="block text-sm text-gray-600 mb-2">Rating (1-5 stars)</label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <button key={n} type="button" onClick={() => setRating(n)}
-                      className={`p-2 rounded-lg transition-all ${rating >= n ? 'text-amber-500 bg-amber-100' : 'text-gray-500 bg-white hover:bg-gray-50'}`}>
-                      <Star className={`w-5 h-5 ${rating >= n ? 'fill-amber-400' : ''}`} />
+                <label className="block text-sm text-gray-600 mb-2">Grade <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-4 gap-2">
+                  {COACH_GRADES.map(g => (
+                    <button key={g} type="button" onClick={() => setGrade(g)}
+                      className={`py-2 rounded-lg text-sm font-bold border transition-all ${grade === g
+                        ? (GRADE_COLORS[g] || 'bg-emerald-100 text-emerald-700') + ' ring-2 ring-emerald-400 border-transparent'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                      {g}
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-gray-400 mt-2">A+ to C are passing grades. Reappear / Absent are recorded outcomes.</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-2">Remarks (optional)</label>

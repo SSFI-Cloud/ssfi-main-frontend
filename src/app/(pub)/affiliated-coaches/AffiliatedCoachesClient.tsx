@@ -12,9 +12,17 @@ import { api } from '@/lib/api/client';
 
 interface Coach {
   id: number; name: string; photo: string | null; level: number; levelTitle: string;
-  state: string; experience: string | null; rating: number | null;
+  state: string; experience: string | null; grade: string | null; rating: number | null;
   certifiedSince: string | null; certificateNumber: string | null;
 }
+
+// Grade badge colours (A+..C pass; Reappear/Absent are recorded outcomes)
+const GRADE_COLORS: Record<string, string> = {
+  'A+': 'bg-emerald-100 text-emerald-700', 'A': 'bg-emerald-100 text-emerald-700',
+  'B+': 'bg-teal-100 text-teal-700', 'B': 'bg-teal-100 text-teal-700',
+  'C+': 'bg-amber-100 text-amber-700', 'C': 'bg-amber-100 text-amber-700',
+  'REAPPEAR': 'bg-orange-100 text-orange-700', 'ABSENT': 'bg-red-100 text-red-700',
+};
 
 interface Program {
   id: number; level: number; title: string; city: string; state: string;
@@ -154,9 +162,16 @@ export default function AffiliatedCoachesClient() {
                               <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-teal-400" />{coach.state}</span>
                               {coach.experience && <span className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-sky-400" />{coach.experience}</span>}
                               {coach.certifiedSince && <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-emerald-400" />Since {coach.certifiedSince}</span>}
-                              {coach.rating && (
+                              {coach.grade ? (
+                                <span className="flex items-center gap-1.5">
+                                  <Award className="w-3 h-3 text-teal-400" />
+                                  <span className={`px-1.5 py-0.5 rounded font-bold ${GRADE_COLORS[coach.grade] || 'bg-teal-100 text-teal-700'}`}>
+                                    Grade {coach.grade}
+                                  </span>
+                                </span>
+                              ) : coach.rating ? (
                                 <span className="flex items-center gap-1.5 text-teal-500"><Star className="w-3 h-3 fill-teal-400" />{coach.rating.toFixed(1)}</span>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </motion.div>
