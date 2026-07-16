@@ -66,6 +66,7 @@ function AdminRegistrationsContent() {
     const [manualEventDetails, setManualEventDetails] = useState<any>(null);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [availableRaces, setAvailableRaces] = useState<string[]>([]);
+    const [raceRules, setRaceRules] = useState<{ min: number; max: number; mandatory: string[] }>({ min: 1, max: 3, mandatory: [] });
     const [selectedRaces, setSelectedRaces] = useState<string[]>([]);
     const [suitSize, setSuitSize] = useState('');
     const [manualRemarks, setManualRemarks] = useState('');
@@ -191,6 +192,15 @@ function AdminRegistrationsContent() {
                 const res = await portalService.getAvailableRaces(category, foundStudent.ageCategory, eventId);
                 if (res.status === 'success') {
                     setAvailableRaces(res.data.availableRaces);
+                    // Drive min/max/mandatory from the event's own raceConfig instead
+                    // of a hardcoded "max 3", and pre-select any mandatory races.
+                    const mandatory: string[] = res.data.mandatoryRaces ?? [];
+                    setRaceRules({
+                        min: res.data.minRaces ?? 1,
+                        max: res.data.maxRaces ?? res.data.availableRaces?.length ?? 3,
+                        mandatory,
+                    });
+                    setSelectedRaces(mandatory);
                 }
             } catch (error) {
                 console.error(error);
@@ -201,9 +211,10 @@ function AdminRegistrationsContent() {
 
     const toggleRace = (race: string) => {
         if (selectedRaces.includes(race)) {
+            if (raceRules.mandatory.includes(race)) return toast.error('This race is mandatory');
             setSelectedRaces(prev => prev.filter(r => r !== race));
         } else {
-            if (selectedRaces.length >= 3) return toast.error('Max 3 races allowed'); // Basic rule
+            if (selectedRaces.length >= raceRules.max) return toast.error(`Max ${raceRules.max} races allowed`);
             setSelectedRaces(prev => [...prev, race]);
         }
     };
@@ -224,8 +235,10 @@ function AdminRegistrationsContent() {
     const submitManualRegistration = async () => {
         if (!foundStudent) return toast.error('Please search for a student');
         if (!selectedCategory) return toast.error('Please select a skate category');
-        if (!suitSize) return toast.error('Please select a suit size');
-        if (selectedRaces.length === 0) return toast.error('Please select at least one race');
+        const collectSuit = manualEventDetails?.collectSuitSize !== false;
+        if (collectSuit && !suitSize) return toast.error('Please select a suit size');
+        if (selectedRaces.length < raceRules.min) return toast.error(`Please select at least ${raceRules.min} race(s)`);
+        if (selectedRaces.length > raceRules.max) return toast.error(`Please select at most ${raceRules.max} races`);
 
         if (!token) return;
 
@@ -237,7 +250,7 @@ function AdminRegistrationsContent() {
                 studentUid: manualUid,
                 skateCategory: selectedCategory,
                 selectedRaces,
-                suitSize: suitSize, // Fixed: Added suitSize
+                suitSize: collectSuit ? suitSize : undefined, // omit when the event doesn't collect it
                 remarks: manualRemarks,
                 bypassPayment: true // Required by backend validator
             };
@@ -537,7 +550,8 @@ function AdminRegistrationsContent() {
                                             </select>
                                         </div>
 
-                                        {/* Suit Size - ADDED */}
+                                        {/* Suit Size — only when the event collects it */}
+                                        {manualEventDetails?.collectSuitSize !== false && (
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium text-gray-500">Suit Size <span className="text-red-500">*</span></label>
                                             <select
@@ -560,11 +574,12 @@ function AdminRegistrationsContent() {
                                                 <option value="KIDS_12">Kids 12</option>
                                             </select>
                                         </div>
+                                        )}
 
                                         {/* Races */}
                                         {availableRaces.length > 0 && (
                                             <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-500">Select Races (Max 3) <span className="text-red-500">*</span></label>
+                                                <label className="text-sm font-medium text-gray-500">Select Races (min {raceRules.min}, max {raceRules.max}) <span className="text-red-500">*</span></label>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     {availableRaces.map(race => (
                                                         <button
