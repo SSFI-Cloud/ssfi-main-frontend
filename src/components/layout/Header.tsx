@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { api } from '@/lib/api/client';
+import { resolveImageUrl } from '@/lib/utils/resolveImageUrl';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Menu,
@@ -222,12 +223,16 @@ const Header = () => {
                   >
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center overflow-hidden">
                       {user.profile_photo ? (
-                        <Image
-                          src={user.profile_photo}
+                        // Backend stores relative /uploads/... paths. A bare src
+                        // resolves against the frontend domain (404), and Next
+                        // <Image> needs the backend host whitelisted. resolveImageUrl
+                        // prefixes the API origin; plain <img> avoids the domain gate
+                        // (same fix as the dashboard sidebar avatar).
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={resolveImageUrl(user.profile_photo)}
                           alt={getUserDisplayName()}
-                          width={32}
-                          height={32}
-                          className="object-cover"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <User className="w-5 h-5 text-white" />
