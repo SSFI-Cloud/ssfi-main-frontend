@@ -72,7 +72,7 @@ function AdminRegistrationsContent() {
     const [manualRemarks, setManualRemarks] = useState('');
     const [isSubmittingManual, setIsSubmittingManual] = useState(false);
     // Default categories; replaced by the event's own raceConfig categories on lookup
-    const [eventCategories, setEventCategories] = useState<Array<{ name: string; label?: string }>>([
+    const [eventCategories, setEventCategories] = useState<Array<{ name: string; label?: string; ageGroups?: string[] }>>([
         { name: 'BEGINNER', label: 'Beginner' },
         { name: 'RECREATIONAL', label: 'Recreational' },
         { name: 'QUAD', label: 'Tenacity (Quads)' },
@@ -544,9 +544,14 @@ function AdminRegistrationsContent() {
                                                 className="w-full bg-white border border-gray-200 rounded-lg px-4 py-2 text-gray-900 outline-none"
                                             >
                                                 <option value="">Select Category</option>
-                                                {eventCategories.map(cat => (
-                                                    <option key={cat.name} value={cat.name}>{cat.label || cat.name}</option>
-                                                ))}
+                                                {/* Only categories that apply to this skater's age group — otherwise
+                                                    picking e.g. Quad (Senior) for a U-4 skater 400s ("category not
+                                                    available for this event") and the races fail to load. */}
+                                                {eventCategories
+                                                    .filter(cat => !cat.ageGroups || cat.ageGroups.length === 0 || (foundStudent?.ageCategory && cat.ageGroups.includes(foundStudent.ageCategory)))
+                                                    .map(cat => (
+                                                        <option key={cat.name} value={cat.name}>{cat.label || cat.name}</option>
+                                                    ))}
                                             </select>
                                         </div>
 
