@@ -60,6 +60,7 @@ export default function EditEventPage() {
     const [success, setSuccess] = useState(false);
 
     const [states, setStates] = useState<State[]>([]);
+    const [districts, setDistricts] = useState<{ id: number; name: string }[]>([]);
     const [raceConfig, setRaceConfig] = useState<RaceConfig | null>(null);
     const [bannerImage, setBannerImage] = useState<string | null>(null);
     const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -76,6 +77,7 @@ export default function EditEventPage() {
         category: 'Championship',
         level: 'DISTRICT',
         stateId: '',
+        districtId: '',
         eventDate: '',
         endDate: '',
         registrationStartDate: '',
@@ -102,6 +104,16 @@ export default function EditEventPage() {
         };
         fetchStates();
     }, []);
+
+    // Fetch districts for the selected state. Does NOT clear districtId here (the
+    // event's saved district is loaded into formData and must survive this fetch);
+    // the State dropdown's onChange clears it when the state is actually changed.
+    useEffect(() => {
+        if (!formData.stateId) { setDistricts([]); return; }
+        api.get(`/locations/states/${formData.stateId}/districts`)
+            .then(res => setDistricts(((res.data as any)?.data || []) as { id: number; name: string }[]))
+            .catch(() => setDistricts([]));
+    }, [formData.stateId]);
 
     // Fetch existing event data
     useEffect(() => {
@@ -132,6 +144,7 @@ export default function EditEventPage() {
                     category: event.eventType || event.category || 'Championship',
                     level: event.eventLevel || event.level || 'DISTRICT',
                     stateId: event.stateId ? String(event.stateId) : '',
+                    districtId: event.districtId ? String(event.districtId) : '',
                     eventDate: formatDate(event.eventDate),
                     endDate: formatDate(event.eventEndDate || event.endDate),
                     registrationStartDate: formatDate(event.registrationStartDate),
@@ -180,6 +193,14 @@ export default function EditEventPage() {
         setIsLoading(true);
         setError(null);
 
+        // A District-level event must be tied to a district so registration can
+        // be restricted to that district's skaters.
+        if (formData.level === 'DISTRICT' && !formData.districtId) {
+            setError('Please select the District this event belongs to.');
+            setIsLoading(false);
+            return;
+        }
+
         try {
             await api.put(`/events/${eventId}`, {
                 name: formData.name,
@@ -188,6 +209,7 @@ export default function EditEventPage() {
                 disciplines: [formData.type],
                 eventLevel: formData.level,
                 stateId: formData.stateId ? Number(formData.stateId) : null,
+                districtId: formData.level === 'DISTRICT' && formData.districtId ? Number(formData.districtId) : null,
                 eventDate: new Date(formData.eventDate).toISOString(),
                 eventEndDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
                 registrationStartDate: formData.registrationStartDate ? new Date(formData.registrationStartDate).toISOString() : null,
@@ -492,7 +514,7 @@ export default function EditEventPage() {
                             <label className="block text-sm font-medium text-gray-500 mb-2">State</label>
                             <select
                                 value={formData.stateId}
-                                onChange={(e) => setFormData({ ...formData, stateId: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, stateId: e.target.value, districtId: '' })}
                                 className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                             >
                                 <option value="">Select State</option>
@@ -501,6 +523,26 @@ export default function EditEventPage() {
                                 ))}
                             </select>
                         </div>
+                        {/* District — REQUIRED for District-level events so registration
+                            can be restricted to that district's skaters. */}
+                        {formData.level === 'DISTRICT' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-2">
+                                    District <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.districtId}
+                                    onChange={(e) => setFormData({ ...formData, districtId: e.target.value })}
+                                    disabled={!formData.stateId}
+                                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50"
+                                >
+                                    <option value="">{formData.stateId ? 'Select District' : 'Select a state first'}</option>
+                                    {districts.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
                 </div>
 
