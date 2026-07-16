@@ -314,6 +314,11 @@ function AdminRegistrationsContent() {
     const ageOptions = Array.from(new Set(registrations.map(r => r.ageCategory).filter(Boolean))).sort();
     const categoryOptions = Array.from(new Set(registrations.map(r => r.skateCategory).filter(Boolean))).sort();
 
+    // Summary counts (from ALL registrations, not the filtered view)
+    const paidCount = registrations.filter(r => (r.paymentStatus || '').toUpperCase() === 'PAID').length;
+    const pendingCount = registrations.length - paidCount;
+    const collected = registrations.reduce((sum, r) => sum + ((r.paymentStatus || '').toUpperCase() === 'PAID' ? Number(r.totalFee) || 0 : 0), 0);
+
     const filteredRegistrations = registrations.filter(reg => {
         const q = search.toLowerCase();
         const matchesSearch = !q ||
@@ -365,6 +370,26 @@ function AdminRegistrationsContent() {
                     >
                         <Clock className="w-4 h-4" />
                     </button>
+                </div>
+            </div>
+
+            {/* Summary counts */}
+            <div className="flex flex-wrap gap-3 mb-4">
+                <div className="flex-1 min-w-[120px] bg-white border border-gray-200 rounded-xl px-4 py-3">
+                    <p className="text-xs text-gray-400">Total</p>
+                    <p className="text-xl font-bold text-gray-900">{registrations.length}</p>
+                </div>
+                <div className="flex-1 min-w-[120px] bg-white border border-emerald-200 rounded-xl px-4 py-3">
+                    <p className="text-xs text-emerald-500">Paid</p>
+                    <p className="text-xl font-bold text-emerald-600">{paidCount}</p>
+                </div>
+                <div className="flex-1 min-w-[120px] bg-white border border-amber-200 rounded-xl px-4 py-3">
+                    <p className="text-xs text-amber-500">Pending</p>
+                    <p className="text-xl font-bold text-amber-600">{pendingCount}</p>
+                </div>
+                <div className="flex-1 min-w-[120px] bg-white border border-gray-200 rounded-xl px-4 py-3">
+                    <p className="text-xs text-gray-400">Collected</p>
+                    <p className="text-xl font-bold text-gray-900">₹{collected.toLocaleString('en-IN')}</p>
                 </div>
             </div>
 
