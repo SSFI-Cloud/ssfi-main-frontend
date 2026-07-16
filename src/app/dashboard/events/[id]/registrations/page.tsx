@@ -55,6 +55,9 @@ function AdminRegistrationsContent() {
     const [loading, setLoading] = useState(true);
     const [registrations, setRegistrations] = useState<Registration[]>([]);
     const [search, setSearch] = useState('');
+    const [paymentFilter, setPaymentFilter] = useState<'all' | 'PAID' | 'PENDING'>('all');
+    const [ageFilter, setAgeFilter] = useState('all');
+    const [categoryFilter, setCategoryFilter] = useState('all');
     const [exporting, setExporting] = useState(false);
     const [eventPaymentMode, setEventPaymentMode] = useState<string>('ONLINE');
 
@@ -125,13 +128,24 @@ function AdminRegistrationsContent() {
         }
     };
 
-    const handleExport = async () => {
-        if (!token) return;
+    // Export exactly what's currently filtered (payment / age / category / search).
+    const handleExport = () => {
         try {
             setExporting(true);
-            const blob = await portalService.exportRegistrations(eventId, token);
-
-            // Create download link
+            const rows = filteredRegistrations;
+            if (rows.length === 0) { toast.error('No registrations match the current filters'); return; }
+            const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+            const racesOf = (r: Registration) => Array.isArray(r.selectedRaces) ? r.selectedRaces.join(' / ') : (r.selectedRaces || '');
+            const headers = ['Confirmation', 'Student', 'UID', 'Club', 'District', 'State', 'Category', 'Age Group', 'Races', 'Status', 'Payment', 'Fee'];
+            const csv = [
+                headers.join(','),
+                ...rows.map(r => [
+                    r.confirmationNumber, r.student.name, r.student.membershipId,
+                    r.club?.name || '', r.student.district?.name || '', r.student.state?.name || '',
+                    r.skateCategory, r.ageCategory, racesOf(r), r.status, r.paymentStatus, r.totalFee,
+                ].map(esc).join(',')),
+            ].join('\n');
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -140,11 +154,10 @@ function AdminRegistrationsContent() {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-
-            toast.success('Export started!');
+            toast.success(`Exported ${rows.length} registration${rows.length === 1 ? '' : 's'}`);
         } catch (error) {
             console.error(error);
-            toast.error('Failed to export data');
+            toast.error('Failed to export');
         } finally {
             setExporting(false);
         }
@@ -297,11 +310,22 @@ function AdminRegistrationsContent() {
         );
     };
 
-    const filteredRegistrations = registrations.filter(reg =>
-        reg.student.name.toLowerCase().includes(search.toLowerCase()) ||
-        reg.confirmationNumber.toLowerCase().includes(search.toLowerCase()) ||
-        (reg.club?.name || '').toLowerCase().includes(search.toLowerCase())
-    );
+    // Dropdown options derived from the loaded registrations
+    const ageOptions = Array.from(new Set(registrations.map(r => r.ageCategory).filter(Boolean))).sort();
+    const categoryOptions = Array.from(new Set(registrations.map(r => r.skateCategory).filter(Boolean))).sort();
+
+    const filteredRegistrations = registrations.filter(reg => {
+        const q = search.toLowerCase();
+        const matchesSearch = !q ||
+            reg.student.name.toLowerCase().includes(q) ||
+            reg.confirmationNumber.toLowerCase().includes(q) ||
+            (reg.student.membershipId || '').toLowerCase().includes(q) ||
+            (reg.club?.name || '').toLowerCase().includes(q);
+        const matchesPayment = paymentFilter === 'all' || (reg.paymentStatus || '').toUpperCase() === paymentFilter;
+        const matchesAge = ageFilter === 'all' || reg.ageCategory === ageFilter;
+        const matchesCategory = categoryFilter === 'all' || reg.skateCategory === categoryFilter;
+        return matchesSearch && matchesPayment && matchesAge && matchesCategory;
+    });
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -346,15 +370,33 @@ function AdminRegistrationsContent() {
 
             {/* Filters */}
             <div className="bg-[#f5f6f8] border border-gray-200 rounded-xl p-4 mb-6">
-                <div className="relative max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-                    <input
-                        type="text"
-                        placeholder="Search by name, ID, or club..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-white border border-gray-200 text-gray-800 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
-                    />
+                <div className="flex flex-col md:flex-row gap-3">
+                    <div className="relative flex-1 min-w-[220px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                        <input
+                            type="text"
+                            placeholder="Search by name, ID, or club..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-white border border-gray-200 text-gray-800 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+                        />
+                    </div>
+                    <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value as any)}
+                        className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-500/50">
+                        <option value="all">All payments</option>
+                        <option value="PAID">Paid</option>
+                        <option value="PENDING">Pending</option>
+                    </select>
+                    <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)}
+                        className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-500/50">
+                        <option value="all">All ages</option>
+                        {ageOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+                        className="bg-white border border-gray-200 text-gray-800 px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-500/50">
+                        <option value="all">All categories</option>
+                        {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                 </div>
             </div>
 
