@@ -219,7 +219,8 @@ export default function EventRegistrationPage() {
         category,
         skateCategory: category,
         selectedRaces,
-        suitSize,
+        // Only send suit size when the event collects it.
+        suitSize: event?.collectSuitSize === false ? undefined : suitSize,
       });
       const reg = res.data?.data;
       setRegSuccess({ registrationId: reg.id, confirmationNumber: reg.confirmationNumber, totalFee: reg.totalFee });
@@ -592,21 +593,23 @@ export default function EventRegistrationPage() {
                   ))}
                 </div>
 
-                {/* Suit size */}
-                <div className="mt-5 pt-4 border-t border-gray-100">
-                  <label className={labelCls}>Suit Size</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(s => (
-                      <button key={s} onClick={() => setSuitSize(s)}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all
-                          ${suitSize === s
-                            ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-700'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300 bg-white'}`}>
-                        {s}
-                      </button>
-                    ))}
+                {/* Suit size — only when the event collects it */}
+                {event?.collectSuitSize !== false && (
+                  <div className="mt-5 pt-4 border-t border-gray-100">
+                    <label className={labelCls}>Suit Size</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map(s => (
+                        <button key={s} onClick={() => setSuitSize(s)}
+                          className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all
+                            ${suitSize === s
+                              ? 'border-emerald-400 bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300 bg-white'}`}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Total fee */}
                 <div className="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between">
