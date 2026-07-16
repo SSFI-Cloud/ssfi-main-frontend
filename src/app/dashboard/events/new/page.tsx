@@ -95,6 +95,7 @@ export default function NewEventPage() {
         baseFee: 500,
         maxParticipants: 100,
         paymentMode: 'ONLINE' as 'ONLINE' | 'OFFLINE',
+        collectSuitSize: true,
     });
 
     // Update default level when eventLevels changes
@@ -157,6 +158,7 @@ export default function NewEventPage() {
                 venue: formData.venue,
                 city: formData.city,
                 paymentMode: formData.paymentMode,
+                collectSuitSize: formData.collectSuitSize,
                 raceConfig: raceConfig,
                 bannerImage: bannerImage,
             });
@@ -525,6 +527,22 @@ export default function NewEventPage() {
                                 </div>
                             </div>
                         )}
+                        {/* Suit-size toggle — when off, the registration flow skips suit size entirely. */}
+                        <div className="md:col-span-2">
+                            <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, collectSuitSize: !formData.collectSuitSize })}
+                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 border-gray-200 bg-white hover:border-gray-300 transition-all text-left"
+                            >
+                                <div>
+                                    <p className="text-sm font-medium text-gray-700">Collect suit size</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">When off, skaters won&apos;t be asked for a suit size during registration.</p>
+                                </div>
+                                <span className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${formData.collectSuitSize ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.collectSuitSize ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
