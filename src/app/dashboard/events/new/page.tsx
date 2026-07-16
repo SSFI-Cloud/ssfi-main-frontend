@@ -57,6 +57,7 @@ export default function NewEventPage() {
     const [success, setSuccess] = useState(false);
 
     const [states, setStates] = useState<State[]>([]);
+    const [districts, setDistricts] = useState<{ id: number; name: string }[]>([]);
     const [raceConfig, setRaceConfig] = useState<RaceConfig | null>(null);
     const [bannerImage, setBannerImage] = useState<string | null>(null);
     const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -85,6 +86,7 @@ export default function NewEventPage() {
         category: 'Championship',
         level: defaultLevel,
         stateId: '',
+        districtId: '',
         eventDate: '',
         endDate: '',
         registrationStartDate: '',
@@ -118,6 +120,17 @@ export default function NewEventPage() {
         fetchStates();
     }, []);
 
+    // Fetch districts for the selected state (needed to pick the district of a
+    // District-level event so registration can be restricted to it).
+    useEffect(() => {
+        if (!formData.stateId) { setDistricts([]); return; }
+        api.get(`/locations/states/${formData.stateId}/districts`)
+            .then(res => setDistricts(((res.data as any)?.data || []) as { id: number; name: string }[]))
+            .catch(() => setDistricts([]));
+        // Clear a previously-picked district when the state changes.
+        setFormData(prev => ({ ...prev, districtId: '' }));
+    }, [formData.stateId]);
+
     const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -139,6 +152,14 @@ export default function NewEventPage() {
         setIsLoading(true);
         setError(null);
 
+        // A District-level event must be tied to a district so registration can
+        // be restricted to that district's skaters.
+        if (formData.level === 'DISTRICT' && !formData.districtId) {
+            setError('Please select the District this event belongs to.');
+            setIsLoading(false);
+            return;
+        }
+
         try {
             await api.post('/events', {
                 name: formData.name,
@@ -149,6 +170,7 @@ export default function NewEventPage() {
                 eventType: formData.category,
                 disciplines: [formData.type],
                 stateId: formData.stateId ? Number(formData.stateId) : null,
+                districtId: formData.level === 'DISTRICT' && formData.districtId ? Number(formData.districtId) : null,
                 eventDate: new Date(formData.eventDate).toISOString(),
                 eventEndDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
                 registrationStartDate: formData.registrationStartDate ? new Date(formData.registrationStartDate).toISOString() : new Date(formData.eventDate).toISOString(),
@@ -454,6 +476,26 @@ export default function NewEventPage() {
                                     <option value="">Select State</option>
                                     {states.map(state => (
                                         <option key={state.id} value={state.id}>{state.state_name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {/* District — REQUIRED for District-level events so registration
+                            can be restricted to skaters of that district. */}
+                        {formData.level === 'DISTRICT' && (user?.role === 'GLOBAL_ADMIN' || !user?.role) && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-2">
+                                    District <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.districtId}
+                                    onChange={(e) => setFormData({ ...formData, districtId: e.target.value })}
+                                    disabled={!formData.stateId}
+                                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50"
+                                >
+                                    <option value="">{formData.stateId ? 'Select District' : 'Select a state first'}</option>
+                                    {districts.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
                                     ))}
                                 </select>
                             </div>
