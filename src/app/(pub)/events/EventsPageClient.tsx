@@ -51,7 +51,9 @@ function EventCardLight({ event, index }: { event: Event; index: number }) {
   const daysUntil = getDaysUntilEvent(event.eventDate);
   const canRegister = isRegistrationOpen(event);
   const lc = getLevelColor(event.eventLevel);
-  const regCount = event._count?.registrations || 0;
+  // The API flattens the registration count to `currentEntries` (formatEvent);
+  // `_count` isn't returned on the list, so reading it always showed 0.
+  const regCount = event.currentEntries ?? event._count?.registrations ?? 0;
   const disciplines = (event.disciplines || [])
     .map(d => DISCIPLINES.find(disc => disc.value === d))
     .filter(Boolean).slice(0, 2);
@@ -173,7 +175,9 @@ function EventCardLight({ event, index }: { event: Event; index: number }) {
 /* ── Past Events Table Row ── */
 function EventTableRow({ event, index }: { event: Event; index: number }) {
   const lc = getLevelColor(event.eventLevel);
-  const regCount = event._count?.registrations || 0;
+  // The API flattens the registration count to `currentEntries` (formatEvent);
+  // `_count` isn't returned on the list, so reading it always showed 0.
+  const regCount = event.currentEntries ?? event._count?.registrations ?? 0;
   const winnersCount = event.winnersCount || event._count?.raceResults || 0;
   const eventDate = new Date(event.eventDate);
 
@@ -277,10 +281,15 @@ export default function EventsPageClient() {
     return new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime();
   });
 
-  const cardEvents = sortedEvents.slice(0, 9);
-  const tableEvents = sortedEvents.slice(9).filter(
-    e => new Date(e.eventDate) >= oneYearAgo
-  );
+  // Split by the event's ACTUAL date, not by list position: upcoming/ongoing
+  // events (eventDate today or later) are the cards; only genuinely completed
+  // events (eventDate in the past, within the last year) go to "Past Events".
+  const now = new Date();
+  const cardEvents = sortedEvents.filter(e => new Date(e.eventDate) >= now);
+  const tableEvents = sortedEvents.filter(e => {
+    const d = new Date(e.eventDate);
+    return d < now && d >= oneYearAgo;
+  });
 
   return (
     <div className="min-h-screen bg-[#f5f6f8]">
