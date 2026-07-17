@@ -145,7 +145,7 @@ export const RACE_OPTIONS: { value: RaceType; label: string; shortLabel: string 
     { value: 'RACE_200M', label: '200 Meters', shortLabel: '200M' },
     { value: 'RACE_400M', label: '400 Meters', shortLabel: '400M' },
     { value: 'RACE_1000M', label: '1000 Meters', shortLabel: '1000M' },
-    { value: 'ROAD_100M', label: 'Road 100 Meters', shortLabel: 'Road 100M' },
+    { value: 'ROAD_100M', label: 'Road 1 Lap (200M)', shortLabel: 'Road 1 Lap (200M)' },
     { value: 'ROAD_2000M', label: 'Road 2000 Meters', shortLabel: 'Road 2000M' },
     { value: 'POINT_TO_POINT', label: 'Point to Point', shortLabel: 'P2P' },
 ];
@@ -201,7 +201,7 @@ export const getRaceRules = (category: SkateCategory, ageGroup: string): RaceRul
                     minRaces: 2,
                     maxRaces: 2,
                     mandatoryRaces: [],
-                    description: 'Choose any 2 races (200M, 400M, 1000M, Road 100M)',
+                    description: 'Choose any 2 races (200M, 400M, 1000M, Road 1 Lap (200M))',
                 };
             }
             return {
@@ -210,7 +210,7 @@ export const getRaceRules = (category: SkateCategory, ageGroup: string): RaceRul
                 minRaces: 3,
                 maxRaces: 3,
                 mandatoryRaces: [],
-                description: 'Choose any 3 races (200M, 400M, 1000M, Road 100M, Road 2000M, Point to Point)',
+                description: 'Choose any 3 races (200M, 400M, 1000M, Road 1 Lap (200M), Road 2000M, Point to Point)',
             };
         case 'PRO_INLINE':
             if (isJunior) {
@@ -220,7 +220,7 @@ export const getRaceRules = (category: SkateCategory, ageGroup: string): RaceRul
                     minRaces: 2,
                     maxRaces: 2,
                     mandatoryRaces: [],
-                    description: 'Choose any 2 races (200M, 400M, 1000M, Road 100M)',
+                    description: 'Choose any 2 races (200M, 400M, 1000M, Road 1 Lap (200M))',
                 };
             }
             return {
@@ -229,7 +229,7 @@ export const getRaceRules = (category: SkateCategory, ageGroup: string): RaceRul
                 minRaces: 3,
                 maxRaces: 3,
                 mandatoryRaces: [],
-                description: 'Choose any 3 races (200M, 400M, 1000M, Road 100M, Road 2000M, Point to Point)',
+                description: 'Choose any 3 races (200M, 400M, 1000M, Road 1 Lap (200M), Road 2000M, Point to Point)',
             };
         default:
             return {
