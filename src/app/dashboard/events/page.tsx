@@ -94,7 +94,10 @@ export default function EventsPage() {
     const [viewingEvent, setViewingEvent] = useState<Event | null>(null);
     const [deletingEvent, setDeletingEvent] = useState<Event | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    // Show all events on one page (backend caps at 100). The list had no
+    // pagination UI, so with the old default of 10 everything past the first
+    // 10 events was simply invisible in the dashboard.
+    const [itemsPerPage, setItemsPerPage] = useState(100);
     const [totalPages, setTotalPages] = useState(1);
     const [stats, setStats] = useState({
         totalEvents: 0,
