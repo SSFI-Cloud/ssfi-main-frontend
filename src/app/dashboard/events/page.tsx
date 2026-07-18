@@ -391,29 +391,37 @@ export default function EventsPage() {
                                     </div>
                                 )}
 
-                                {(user?.role === 'GLOBAL_ADMIN' || Number(user?.id) === event.creatorId) && event.status !== 'pending' && (
+                                {event.status !== 'pending' && (
                                     <div className="flex gap-2">
-                                        <Link
-                                            href={`/dashboard/manage-events/${event.id}/results`}
-                                            className="flex-1 py-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 text-sm font-medium flex items-center justify-center gap-1"
-                                        >
-                                            <Trophy className="w-4 h-4" />
-                                            Results
-                                        </Link>
-                                        <Link
-                                            href={`/dashboard/events/${event.id}/registrations`}
-                                            className="flex-1 py-2 bg-teal-100 text-teal-600 rounded-lg hover:bg-teal-200 text-sm font-medium flex items-center justify-center gap-1"
-                                        >
-                                            <Users className="w-4 h-4" />
-                                            Registrations
-                                        </Link>
-                                        <button
-                                            onClick={() => setDeletingEvent(event)}
-                                            className="flex-1 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm font-medium flex items-center justify-center gap-1"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                            Delete
-                                        </button>
+                                        {(user?.role === 'GLOBAL_ADMIN' || Number(user?.id) === event.creatorId) && (
+                                            <Link
+                                                href={`/dashboard/manage-events/${event.id}/results`}
+                                                className="flex-1 py-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 text-sm font-medium flex items-center justify-center gap-1"
+                                            >
+                                                <Trophy className="w-4 h-4" />
+                                                Results
+                                            </Link>
+                                        )}
+                                        {/* Participants view + export: any scoped admin. The list is already
+                                            role-scoped, so a secretary only ever sees their own events here. */}
+                                        {['GLOBAL_ADMIN', 'STATE_SECRETARY', 'DISTRICT_SECRETARY'].includes(user?.role || '') && (
+                                            <Link
+                                                href={`/dashboard/events/${event.id}/registrations`}
+                                                className="flex-1 py-2 bg-teal-100 text-teal-600 rounded-lg hover:bg-teal-200 text-sm font-medium flex items-center justify-center gap-1"
+                                            >
+                                                <Users className="w-4 h-4" />
+                                                Registrations
+                                            </Link>
+                                        )}
+                                        {(user?.role === 'GLOBAL_ADMIN' || Number(user?.id) === event.creatorId) && (
+                                            <button
+                                                onClick={() => setDeletingEvent(event)}
+                                                className="flex-1 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm font-medium flex items-center justify-center gap-1"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                Delete
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
