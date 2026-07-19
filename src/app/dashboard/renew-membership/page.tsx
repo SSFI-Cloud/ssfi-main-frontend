@@ -245,11 +245,11 @@ export default function RenewMembershipPage() {
     try {
       await initiatePayment(
         {
-          amount: 500,
-          payment_type: 'MEMBERSHIP_RENEWAL',
+          amount: 375,
+          payment_type: 'RENEWAL_FEE',
           entity_id: Number(user?.id) || 0,
           entity_type: 'USER',
-          notes: { purpose: 'Membership Renewal' },
+          notes: { purpose: 'Student Membership Renewal' },
         },
         { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
       );
