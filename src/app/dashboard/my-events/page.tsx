@@ -136,10 +136,18 @@ export default function MyEventsPage() {
         }
     };
 
+    // `status` is the registration's paymentStatus (PENDING, PROCESSING, PAID,
+    // FAILED, REFUNDED, BYPASSED) — NOT the Payment enum. It was checked against
+    // 'COMPLETED', so a genuinely-paid 'PAID' fell through to the "Payment Failed"
+    // default (a paid, confirmed skater wrongly showing "Payment Failed").
+    // Accept both vocabularies and never default an unknown value to "Failed".
     const getPaymentStatusBadge = (status: string) => {
-        if (status === 'COMPLETED') return <span className="text-xs text-green-600 font-medium">Payment Successful</span>;
-        if (status === 'PENDING') return <span className="text-xs text-amber-600 font-medium">Payment Pending</span>;
-        return <span className="text-xs text-red-600 font-medium">Payment Failed</span>;
+        const s = (status || '').toUpperCase();
+        if (s === 'PAID' || s === 'COMPLETED' || s === 'BYPASSED') return <span className="text-xs text-green-600 font-medium">Payment Successful</span>;
+        if (s === 'PENDING' || s === 'PROCESSING') return <span className="text-xs text-amber-600 font-medium">Payment Pending</span>;
+        if (s === 'FAILED') return <span className="text-xs text-red-600 font-medium">Payment Failed</span>;
+        if (s === 'REFUNDED') return <span className="text-xs text-gray-500 font-medium">Refunded</span>;
+        return <span className="text-xs text-gray-500 font-medium">{status}</span>;
     };
 
     const filteredRegistrations = registrations.filter(reg => {
