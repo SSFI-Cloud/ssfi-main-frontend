@@ -111,6 +111,7 @@ export default function PaymentHistory({
             CLUB_AFFILIATION: { color: 'bg-teal-500/20 text-teal-400', label: 'Club' },
             EVENT_REGISTRATION: { color: 'bg-amber-500/20 text-amber-400', label: 'Event' },
             MEMBERSHIP_RENEWAL: { color: 'bg-green-500/20 text-green-400', label: 'Renewal' },
+            RENEWAL_FEE: { color: 'bg-green-500/20 text-green-400', label: 'Renewal' },
             REGISTRATION: { color: 'bg-emerald-500/20 text-emerald-400', label: 'Registration' },
         };
         const typeConfig = types[type] || { color: 'bg-slate-500/20 text-slate-400', label: type };

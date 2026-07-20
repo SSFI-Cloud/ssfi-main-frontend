@@ -86,6 +86,7 @@ export default function PaymentButton({
             CLUB_AFFILIATION: 'Club Affiliation',
             EVENT_REGISTRATION: 'Event Registration',
             MEMBERSHIP_RENEWAL: 'Membership Renewal',
+            RENEWAL_FEE: 'Student Membership Renewal',
             COACH_CERTIFICATION: 'Coach Certification',
             BEGINNER_CERTIFICATION: 'Beginner Certification',
             AFFILIATION_FEE: 'Registration Fee',

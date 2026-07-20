@@ -15,6 +15,7 @@ const PAYMENT_TYPE_CONFIG: Record<string, { label: string; backLink: string; bac
     COACH_CERTIFICATION: { label: 'Coach Certification', backLink: '/coach-certification', backLabel: 'Back' },
     BEGINNER_CERTIFICATION: { label: 'Beginner Certification', backLink: '/beginner-certification', backLabel: 'Back' },
     MEMBERSHIP_RENEWAL: { label: 'Membership Renewal', backLink: '/dashboard', backLabel: 'Back to Dashboard' },
+    RENEWAL_FEE: { label: 'Student Membership Renewal', backLink: '/dashboard', backLabel: 'Back to Dashboard' },
     DONATION: { label: 'Donation', backLink: '/', backLabel: 'Back to Home' },
 };
 
