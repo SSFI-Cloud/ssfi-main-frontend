@@ -135,6 +135,12 @@ export default function SettingsPage() {
     const [rpSaving, setRpSaving] = useState(false);
     const [showSecrets, setShowSecrets] = useState(false);
 
+    // District & State fallback Razorpay config (GLOBAL_ADMIN only)
+    const [fbConfig, setFbConfig] = useState<any>(null);
+    const [fbForm, setFbForm] = useState({ keyId: '', keySecret: '', webhookSecret: '' });
+    const [fbTesting, setFbTesting] = useState(false);
+    const [fbSaving, setFbSaving] = useState(false);
+
     // Club-owner self-service: nominee details for their club. Club table has
     // its own nomineeName / nomineeAge / nomineeRelation columns separate
     // from the ClubOwner / User profile, so they go through a dedicated
@@ -333,6 +339,69 @@ export default function SettingsPage() {
         }
     };
 
+    // Fallback Razorpay config functions (GLOBAL_ADMIN only)
+    const fetchFbConfig = useCallback(async () => {
+        try {
+            const res = await api.get('/razorpay-config/fallback');
+            const data = (res.data as any)?.data;
+            setFbConfig(data);
+            if (data) setFbForm({ keyId: data.keyId || '', keySecret: '', webhookSecret: '' });
+        } catch { /* not configured yet */ }
+    }, []);
+
+    useEffect(() => {
+        if ((fullUser?.role || authUser?.role) === 'GLOBAL_ADMIN') fetchFbConfig();
+    }, [fullUser?.role, authUser?.role, fetchFbConfig]);
+
+    const handleFbSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!fbForm.keyId || !fbForm.keySecret) {
+            toast.error('Key ID and Key Secret are required');
+            return;
+        }
+        setFbSaving(true);
+        try {
+            const res = await api.put('/razorpay-config/fallback', fbForm);
+            toast.success((res.data as any)?.message || 'Credentials saved');
+            setFbForm(prev => ({ ...prev, keySecret: '', webhookSecret: '' }));
+            await fetchFbConfig();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to save');
+        } finally {
+            setFbSaving(false);
+        }
+    };
+
+    const handleFbTest = async () => {
+        setFbTesting(true);
+        try {
+            const res = await api.post('/razorpay-config/fallback/test', {});
+            const data = res.data as any;
+            if (data.status === 'success') {
+                toast.success(data.message || 'Integration verified!');
+                await fetchFbConfig();
+            } else {
+                toast.error(data.message || 'Verification failed');
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Test failed');
+        } finally {
+            setFbTesting(false);
+        }
+    };
+
+    const handleFbDelete = async () => {
+        if (!confirm('Remove the fallback Razorpay account? District/State event payments without their own account will use the central SSFI account.')) return;
+        try {
+            await api.delete('/razorpay-config/fallback');
+            toast.success('Configuration removed');
+            setFbConfig(null);
+            setFbForm({ keyId: '', keySecret: '', webhookSecret: '' });
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to remove');
+        }
+    };
+
     const setField = (key: string, value: any) => setFormData(prev => ({ ...prev, [key]: value }));
 
     const role = fullUser?.role || authUser?.role || '';
@@ -491,6 +560,108 @@ export default function SettingsPage() {
                                             <Trash2 className="w-4 h-4" />
                                             Remove Configuration
                                         </button>
+                                    </div>
+                                )}
+
+                                {/* District & State fallback account (GLOBAL_ADMIN only) */}
+                                {role === 'GLOBAL_ADMIN' && (
+                                    <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-6">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+                                                <Shield className="w-5 h-5 text-emerald-500" /> District &amp; State Fallback Account
+                                            </h2>
+                                            <p className="text-gray-500 text-sm">Fallback Razorpay account for district and state event payments.</p>
+                                        </div>
+
+                                        {/* Status Badge */}
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-gray-600">Status:</span>
+                                            {!fbConfig ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                                                    <span className="w-2 h-2 rounded-full bg-gray-400" /> Not Configured
+                                                </span>
+                                            ) : fbConfig.isVerified ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+                                                    <span className="w-2 h-2 rounded-full bg-green-500" /> Verified and Active
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
+                                                    <span className="w-2 h-2 rounded-full bg-yellow-500" /> Configured (Unverified)
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+                                            District and state event payments are collected into that district/state secretary&apos;s own Razorpay account when they have configured one. Otherwise they fall back to this account. If this is also not set, the central SSFI account is used.
+                                        </div>
+
+                                        {/* Form */}
+                                        <form onSubmit={handleFbSave} className="space-y-4">
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-gray-600">Razorpay Key ID</label>
+                                                <input
+                                                    type="text"
+                                                    value={fbForm.keyId}
+                                                    onChange={(e) => setFbForm(p => ({ ...p, keyId: e.target.value }))}
+                                                    placeholder="rzp_live_xxxxxxxxxxxxxxxx"
+                                                    required
+                                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-gray-600">Razorpay Key Secret</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showSecrets ? 'text' : 'password'}
+                                                        value={fbForm.keySecret}
+                                                        onChange={(e) => setFbForm(p => ({ ...p, keySecret: e.target.value }))}
+                                                        placeholder={fbConfig ? '(enter new value to change)' : 'Enter your key secret'}
+                                                        required={!fbConfig}
+                                                        className="w-full px-4 py-2.5 pr-12 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                                                    />
+                                                    <button type="button" onClick={() => setShowSecrets(!showSecrets)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                                        {showSecrets ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="text-sm font-medium text-gray-600">Webhook Secret <span className="text-gray-400">(Optional)</span></label>
+                                                <input
+                                                    type={showSecrets ? 'text' : 'password'}
+                                                    value={fbForm.webhookSecret}
+                                                    onChange={(e) => setFbForm(p => ({ ...p, webhookSecret: e.target.value }))}
+                                                    placeholder={fbConfig?.hasWebhookSecret ? '(enter new value to change)' : 'Enter your webhook secret'}
+                                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                                                />
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-3 pt-2">
+                                                <button type="submit" disabled={fbSaving} className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all font-medium">
+                                                    {fbSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                                    Save Credentials
+                                                </button>
+                                                {fbConfig && (
+                                                    <button type="button" onClick={handleFbTest} disabled={fbTesting} className="px-6 py-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all font-medium">
+                                                        {fbTesting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
+                                                        Test Integration
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </form>
+
+                                        {/* Danger Zone */}
+                                        {fbConfig && (
+                                            <div className="pt-4 border-t border-gray-200">
+                                                <h3 className="text-sm font-semibold text-red-600 mb-2">Danger Zone</h3>
+                                                <button onClick={handleFbDelete} className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 flex items-center gap-2 transition-all">
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Remove Configuration
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
