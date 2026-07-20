@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 import { toast } from 'react-hot-toast';
 
 // The backend stores profile photos as relative paths under /uploads/...
@@ -238,7 +239,14 @@ export default function SettingsPage() {
         setMessage(null);
 
         try {
-            const res = await api.put('/auth/profile', formData);
+            // Never send a blank state/district/club — these are numeric ids and
+            // an empty string would be written straight through to the column.
+            const payload: Record<string, any> = { ...formData };
+            for (const k of ['stateId', 'districtId', 'clubId']) {
+                if (!payload[k]) delete payload[k];
+            }
+
+            const res = await api.put('/auth/profile', payload);
             const userData = (res.data as any)?.data?.user ?? (res.data as any)?.user;
             if (userData) setFullUser(userData);
             setMessage({ type: 'success', text: 'Profile updated successfully' });
@@ -406,6 +414,46 @@ export default function SettingsPage() {
 
     const role = fullUser?.role || authUser?.role || '';
     const profile = fullUser?.profile;
+
+    // ── Fill-only geography ──────────────────────────────────────────────────
+    // A student whose state/district/club is blank (renewal never captured it)
+    // is silently barred from every district event. Let them complete it here.
+    // Fields already set stay read-only — the backend enforces the same rule, so
+    // changing an existing district (and hopping into another district's meet)
+    // isn't possible from this form.
+    const { fetchStates, data: states } = useStates();
+    const { fetchDistricts, clearDistricts, data: districts } = useDistricts();
+    const { fetchClubs, clearClubs, data: clubs } = useClubs();
+
+    const hasState = !!(profile as any)?.state?.name;
+    const hasDistrict = !!(profile as any)?.district?.name;
+    const hasClub = !!(profile as any)?.club?.name;
+    const needsGeo = role === 'STUDENT' && (!hasState || !hasDistrict || !hasClub);
+
+    // Effective ids drive the cascade: prefer what's already on the profile so a
+    // student who has a state but no district still gets that state's districts.
+    const effStateId = hasState ? String((profile as any).state.id) : (formData.stateId || '');
+    const effDistrictId = hasDistrict ? String((profile as any).district.id) : (formData.districtId || '');
+
+    useEffect(() => {
+        if (needsGeo) fetchStates();
+    }, [needsGeo, fetchStates]);
+
+    useEffect(() => {
+        if (needsGeo && effStateId) fetchDistricts(effStateId);
+        else if (needsGeo) clearDistricts();
+    }, [needsGeo, effStateId, fetchDistricts, clearDistricts]);
+
+    useEffect(() => {
+        if (needsGeo && effDistrictId) fetchClubs(effDistrictId);
+        else if (needsGeo) clearClubs();
+    }, [needsGeo, effDistrictId, fetchClubs, clearClubs]);
+
+    // Changing a parent clears its children so we never save a mismatched pair.
+    const handleStateChange = (v: string) =>
+        setFormData(prev => ({ ...prev, stateId: v, districtId: '', clubId: '' }));
+    const handleDistrictChange = (v: string) =>
+        setFormData(prev => ({ ...prev, districtId: v, clubId: '' }));
 
     if (fetching) {
         return (
@@ -667,6 +715,21 @@ export default function SettingsPage() {
                             </div>
                         ) : activeTab === 'profile' ? (
                             <form onSubmit={handleProfileUpdate} className="space-y-8">
+                                {/* Incomplete geography blocks district event entry — tell them why. */}
+                                {needsGeo && (
+                                    <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                                        <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-amber-900">Complete your profile to register for events</p>
+                                            <p className="text-sm text-amber-800 mt-0.5">
+                                                Your State, District and Club are required to enter district championships.
+                                                Please select them below and save. Once saved they are locked — contact your
+                                                district secretary if anything needs correcting later.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Account info (read-only) */}
                                 <div>
                                     <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
@@ -698,9 +761,40 @@ export default function SettingsPage() {
                                         )}
                                         {role === 'STUDENT' && (
                                             <>
-                                                <ReadOnlyField label="State" value={(profile as any)?.state?.name} icon={MapPin} />
-                                                <ReadOnlyField label="District" value={(profile as any)?.district?.name} icon={MapPin} />
-                                                <ReadOnlyField label="Club" value={(profile as any)?.club?.name} icon={MapPin} />
+                                                {hasState ? (
+                                                    <ReadOnlyField label="State" value={(profile as any).state.name} icon={MapPin} />
+                                                ) : (
+                                                    <SelectField
+                                                        label="State *"
+                                                        value={formData.stateId || ''}
+                                                        onChange={(e: any) => handleStateChange(e.target.value)}
+                                                        options={[{ value: '', label: 'Select State' }, ...(states || []).map((s: any) => ({ value: String(s.id), label: s.name }))]}
+                                                    />
+                                                )}
+
+                                                {hasDistrict ? (
+                                                    <ReadOnlyField label="District" value={(profile as any).district.name} icon={MapPin} />
+                                                ) : (
+                                                    <SelectField
+                                                        label="District *"
+                                                        value={formData.districtId || ''}
+                                                        onChange={(e: any) => handleDistrictChange(e.target.value)}
+                                                        disabled={!effStateId}
+                                                        options={[{ value: '', label: effStateId ? 'Select District' : 'Select State first' }, ...(districts || []).map((d: any) => ({ value: String(d.id), label: d.name }))]}
+                                                    />
+                                                )}
+
+                                                {hasClub ? (
+                                                    <ReadOnlyField label="Club" value={(profile as any).club.name} icon={MapPin} />
+                                                ) : (
+                                                    <SelectField
+                                                        label="Club *"
+                                                        value={formData.clubId || ''}
+                                                        onChange={(e: any) => setField('clubId', e.target.value)}
+                                                        disabled={!effDistrictId}
+                                                        options={[{ value: '', label: effDistrictId ? 'Select Club' : 'Select District first' }, ...(clubs || []).map((c: any) => ({ value: String(c.id), label: c.name }))]}
+                                                    />
+                                                )}
                                             </>
                                         )}
                                     </div>
