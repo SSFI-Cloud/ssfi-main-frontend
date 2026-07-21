@@ -56,6 +56,7 @@ function AdminRegistrationsContent() {
     const [registrations, setRegistrations] = useState<Registration[]>([]);
     const [search, setSearch] = useState('');
     const [exporting, setExporting] = useState(false);
+    const [groupedExporting, setGroupedExporting] = useState(false);
     const [eventPaymentMode, setEventPaymentMode] = useState<string>('ONLINE');
 
     // Manual Registration State
@@ -147,6 +148,29 @@ function AdminRegistrationsContent() {
             toast.error('Failed to export data');
         } finally {
             setExporting(false);
+        }
+    };
+
+    // Grouped start-list export — one .xlsx, auto-segregated by category/gender/age.
+    const handleGroupedExport = async () => {
+        if (!token) return;
+        try {
+            setGroupedExporting(true);
+            const blob = await portalService.exportGroupedRegistrations(eventId, token);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `event-${eventId}-start-lists.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            toast.success('Start lists downloaded!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to download start lists');
+        } finally {
+            setGroupedExporting(false);
         }
     };
 
@@ -334,6 +358,15 @@ function AdminRegistrationsContent() {
                     >
                         {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         Export Excel
+                    </button>
+                    <button
+                        onClick={handleGroupedExport}
+                        disabled={groupedExporting}
+                        title="One Excel workbook, one sheet per Category / Gender / Age group"
+                        className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                    >
+                        {groupedExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        Download Event Lists
                     </button>
                     <button
                         onClick={fetchRegistrations}
