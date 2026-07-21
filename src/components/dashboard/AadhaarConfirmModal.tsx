@@ -169,7 +169,7 @@ export default function AadhaarConfirmModal() {
                   value={grouped}
                   onChange={e => onChange(e.target.value)}
                   placeholder="1234 5678 9012"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-lg font-mono tracking-wider focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-lg font-mono tracking-wider text-gray-900 placeholder:text-gray-400 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                 />
                 <p className="text-[11px] text-gray-400 mt-1">{value.length}/12 digits</p>
               </div>
