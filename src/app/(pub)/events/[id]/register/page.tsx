@@ -58,6 +58,18 @@ const SKATE_CATEGORIES = [
   { value: 'PRO_INLINE',   label: 'Pro Inline',   emoji: '⚡', desc: 'Advanced inline' },
 ];
 
+// Show each category's eligible age range in brackets so skaters know which one
+// to pick (they kept calling to ask). ageGroups comes from the event's config,
+// e.g. ['U-4','U-6','U-8'] -> "U-4 to U-8".
+const AGE_LABEL: Record<string, string> = { ABOVE_16: '16+', MASTERS_30: 'Masters 30+', OPEN: 'Open' };
+const fmtAge = (a: string) => AGE_LABEL[a] || a;
+const formatAgeGroups = (groups?: string[]): string => {
+  if (!groups || groups.length === 0) return '';
+  const first = fmtAge(groups[0]);
+  const last = fmtAge(groups[groups.length - 1]);
+  return first === last ? first : `${first} to ${last}`;
+};
+
 // ─── Step Indicator ──────────────────────────────────────────────────────────
 
 function StepIndicator({ step }: { step: number }) {
@@ -114,7 +126,7 @@ export default function EventRegistrationPage() {
   const [eventFee, setEventFee]       = useState<EventFee | null>(null);
 
   // Step 2 — Category
-  const [eventCategories, setEventCategories] = useState<Array<{ name: string; label: string }>>([]);
+  const [eventCategories, setEventCategories] = useState<Array<{ name: string; label: string; ageGroups?: string[] }>>([]);
   const [category, setCategory]       = useState('');
 
   // Step 3 — Races
@@ -436,7 +448,7 @@ export default function EventRegistrationPage() {
 
                 {/* Category grid */}
                 <div className="grid grid-cols-2 gap-3">
-                  {(eventCategories.length > 0 ? eventCategories : SKATE_CATEGORIES.map(c => ({ name: c.value, label: c.label }))).map(cat => {
+                  {(eventCategories.length > 0 ? eventCategories : SKATE_CATEGORIES.map(c => ({ name: c.value, label: c.label, ageGroups: [] as string[] }))).map(cat => {
                     const active = category === cat.name;
                     const defaultCat = SKATE_CATEGORIES.find(c => c.value === cat.name);
                     return (
@@ -448,6 +460,9 @@ export default function EventRegistrationPage() {
                         <span className="text-2xl">{defaultCat?.emoji || '🏅'}</span>
                         <div className="min-w-0">
                           <p className={`font-bold text-sm ${active ? 'text-emerald-700' : 'text-gray-800'}`}>{cat.label}</p>
+                          {formatAgeGroups(cat.ageGroups) && (
+                            <p className="text-xs text-gray-500 font-medium mt-0.5">({formatAgeGroups(cat.ageGroups)})</p>
+                          )}
                         </div>
                         {active && (
                           <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto flex-shrink-0 absolute top-3 right-3" />
