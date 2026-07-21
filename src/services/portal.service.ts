@@ -98,6 +98,22 @@ export const portalService = {
         return response.blob();
     },
 
+    // Grouped start-list workbook (one sheet per Category x Gender x Age).
+    exportGroupedRegistrations: async (eventId: number | string, token?: string) => {
+        const headers: any = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(`${API_URL}/event-registration/${eventId}/registrations/grouped-export`, {
+            headers
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to export start lists');
+        }
+
+        return response.blob();
+    },
+
     lookupStudent: async (uid: string, eventId: number | string, token?: string) => {
         // The lookup route is auth-protected; cookies don't travel cross-origin
         // from the dashboard, so pass the bearer token explicitly.
