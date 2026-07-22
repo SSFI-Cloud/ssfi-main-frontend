@@ -8,6 +8,7 @@ import {
     GraduationCap, Heart, Trophy, Shield, Download
 } from 'lucide-react';
 import DownloadButton from '@/components/shared/DownloadButton';
+import { onImageError } from '@/lib/utils/imageFallback';
 import { api } from '@/lib/api/client';
 
 /* Always use the backend base URL for serving uploaded images */
@@ -119,7 +120,7 @@ export default function StudentViewModal({ student, isLoading, onClose }: Studen
                                 {student?.profile_image ? (
                                     <>
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={imgUrl(student.profile_image)} alt={student.name} className="object-cover w-full h-full" loading="lazy" />
+                                        <img src={imgUrl(student.profile_image)} alt={student.name} className="object-cover w-full h-full" loading="lazy" onError={onImageError} />
                                         <span className="absolute inset-0 rounded-full bg-gradient-to-b from-black/5 via-transparent to-black/25 pointer-events-none" />
                                     </>
                                 ) : (
@@ -159,7 +160,7 @@ export default function StudentViewModal({ student, isLoading, onClose }: Studen
                                         {student.profile_image ? (
                                             <>
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={imgUrl(student.profile_image)} alt={student.name} className="object-cover w-full h-full" loading="lazy" />
+                                                <img src={imgUrl(student.profile_image)} alt={student.name} className="object-cover w-full h-full" loading="lazy" onError={onImageError} />
                                                 <span className="absolute inset-0 rounded-full bg-gradient-to-b from-black/5 via-transparent to-black/25 pointer-events-none" />
                                                 <DownloadButton
                                                     url={student.profile_image}

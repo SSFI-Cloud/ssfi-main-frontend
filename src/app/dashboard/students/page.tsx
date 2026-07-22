@@ -9,6 +9,7 @@ import {
     CheckCircle, Clock, User, AlertCircle, Trophy, Send,
 } from 'lucide-react';
 import { api } from '@/lib/api/client';
+import { onImageError } from '@/lib/utils/imageFallback';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useStates, useDistricts, useClubs } from '@/lib/hooks/useStudent';
 import { toast } from 'react-hot-toast';
@@ -569,6 +570,7 @@ export default function StudentsPage() {
                                                             alt={student.name}
                                                             className="object-cover w-full h-full"
                                                             loading="lazy"
+                                                            onError={onImageError}
                                                         />
                                                         {/* Subtle dark gradient overlay for professional look */}
                                                         <span className="absolute inset-0 rounded-full bg-gradient-to-b from-black/5 via-transparent to-black/25 pointer-events-none" />
