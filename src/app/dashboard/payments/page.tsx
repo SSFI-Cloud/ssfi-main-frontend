@@ -212,15 +212,35 @@ export default function PaymentsPage() {
     // payment actions (auto-approve student / send welcome email) run
     // automatically. Older PENDINGs (>30d) are skipped to avoid burning
     // Razorpay API quota on long-abandoned attempts.
+    //
+    // Runs in batches of 50 via `nextCursor` — one giant request used to
+    // blow the 30s client timeout with hundreds of pending rows while the
+    // server kept working ("Network error" + a sweep the admin can't see).
     const [bulkVerifyLoading, setBulkVerifyLoading] = useState(false);
     const handleVerifyAllPending = async () => {
         setBulkVerifyLoading(true);
         const t = toast.loading('Reconciling with Razorpay…');
         try {
-            const res = await api.post('/payments/admin/verify-all-pending');
-            const data = (res.data as any)?.data ?? {};
-            const msg = (res.data as any)?.message
-                || `Scanned ${data.scanned ?? 0} • ${data.confirmed ?? 0} confirmed • ${data.stillPending ?? 0} still pending • ${data.errored ?? 0} errored`;
+            let cursor: number | null = null;
+            let scanned = 0, confirmed = 0, stillPending = 0, errored = 0, total = 0;
+            do {
+                const res: any = await api.post(
+                    `/payments/admin/verify-all-pending?limit=50${cursor ? `&beforeId=${cursor}` : ''}`
+                );
+                const data: any = res?.data?.data ?? {};
+                scanned += data.scanned ?? 0;
+                confirmed += data.confirmed ?? 0;
+                stillPending += data.stillPending ?? 0;
+                errored += data.errored ?? 0;
+                total = data.totalPending ?? total;
+                cursor = data.nextCursor ?? null;
+                if (cursor) {
+                    toast.loading(`Reconciling with Razorpay… ${scanned}${total ? `/${total}` : ''} checked`, { id: t });
+                }
+            } while (cursor);
+            const msg = scanned === 0
+                ? 'No pending payments to reconcile.'
+                : `Scanned ${scanned} • ${confirmed} confirmed • ${stillPending} still pending • ${errored} errored`;
             toast.success(msg, { id: t, duration: 6000 });
             fetchPayments();
             fetchStats();
